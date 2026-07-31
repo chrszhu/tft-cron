@@ -91,7 +91,7 @@ jobs:
 
     strategy:
       fail-fast: false   # if one set fails, keep running the others
-      max-parallel: 2    # 2 concurrent jobs → ~2× rate limit usage, still safe
+      max-parallel: 1    # run one set at a time to stay well under rate limits
       matrix:
         set: [14, 15, 16]   # add/remove sets here; omit the current set (17)
 
