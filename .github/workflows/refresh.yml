@@ -1,0 +1,98 @@
+name: Refresh TFT Data
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"   # every 6 hours; adjust to taste
+
+  workflow_dispatch:
+    inputs:
+      region:
+        description: "Platform region (e.g. na1, euw1)"
+        required: false
+        default: "na1"
+      tier:
+        description: "Tier: challenger / grandmaster / master / all"
+        required: false
+        default: "all"
+      backfill_set:
+        description: "Backfill a historical set number (blank = normal refresh)"
+        required: false
+        default: ""
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360   # 6-hour hard cap; script normally runs in 1-2 h
+
+    steps:
+      # ── 1. Check out THIS (public orchestrator) repo ───────────────────────
+      - uses: actions/checkout@v4
+
+      # ── 2. Python setup ────────────────────────────────────────────────────
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - run: pip install -r requirements.txt
+
+      # ── 3. Run refresh.py (writes to shared DB + generates snapshot JSON) ──
+      - name: Run refresh
+        env:
+          RIOT_API_KEY: ${{ secrets.RIOT_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TFT_ACTIVE_SET:               ${{ vars.TFT_ACTIVE_SET || '17' }}
+          TFT_PATCH_START_TIMESTAMP:    ${{ vars.TFT_PATCH_START_TIMESTAMP || '1774310400' }}
+        run: |
+          REGION="${{ github.event.inputs.region || 'na1' }}"
+          TIER="${{ github.event.inputs.tier || 'all' }}"
+          BACKFILL="${{ github.event.inputs.backfill_set }}"
+
+          if [ -n "$BACKFILL" ]; then
+            echo "=== Backfilling Set $BACKFILL for $REGION / $TIER ==="
+            python3 scripts/refresh.py --region "$REGION" --tier "$TIER" --backfill-set "$BACKFILL"
+          else
+            echo "=== Normal refresh: $REGION / $TIER ==="
+            python3 scripts/refresh.py --region "$REGION" --tier "$TIER"
+          fi
+
+      # ── 4. Push snapshot JSON files into the private app repo ──────────────
+      # refresh.py writes snapshot files to ./public/data/ relative to CWD.
+      # We clone the private repo, copy the snapshots in, commit, and push.
+      # APP_REPO_PAT must be a fine-grained PAT with "Contents: Read & Write"
+      # scoped to the private app repo only.
+      - name: Push snapshot to private app repo
+        env:
+          APP_REPO_PAT: ${{ secrets.APP_REPO_PAT }}
+          APP_REPO: ${{ vars.APP_REPO }}   # e.g. your-username/tft
+        run: |
+          # Bail early if no snapshots were generated
+          SNAPSHOTS=(public/data/snapshot_*.json)
+          if [ ! -f "${SNAPSHOTS[0]}" ]; then
+            echo "No snapshot files found — skipping push."
+            exit 0
+          fi
+
+          # Clone private app repo (shallow, main branch only)
+          git clone --depth 1 \
+            "https://x-access-token:${APP_REPO_PAT}@github.com/${APP_REPO}.git" \
+            _app_repo
+
+          # Copy snapshot files into the app repo
+          mkdir -p _app_repo/public/data
+          cp public/data/snapshot_*.json _app_repo/public/data/
+
+          # Commit and push if anything changed
+          cd _app_repo
+          git config user.name  "tft-orchestrator[bot]"
+          git config user.email "tft-orchestrator[bot]@users.noreply.github.com"
+          git add public/data/snapshot_*.json
+
+          if git diff --cached --quiet; then
+            echo "Snapshot unchanged — nothing to push."
+          else
+            TIMESTAMP=$(date -u "+%Y-%m-%d %H:%M UTC")
+            git commit -m "data: refresh TFT snapshot ($TIMESTAMP)"
+            git push
+            echo "Pushed to ${APP_REPO} — Vercel will redeploy automatically."
+          fi
