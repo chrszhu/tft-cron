@@ -336,14 +336,12 @@ def _fetch_ladder(platform: str, tier: str, api_key: str) -> list:
 # Update when new sets ship (approximate dates are fine — we filter by
 # tft_set_number inside each match response too).
 SET_TIME_WINDOWS: dict[int, tuple[int, int]] = {
-    10: (1641600000, 1652400000),   # Set 10 Remix Rumble:  Jan 2022 – May 2022
-    11: (1652400000, 1663200000),   # Set 11 Inkborn Fables: May 2022 – Sep 2022
-    12: (1663200000, 1674000000),   # Set 12:               Sep 2022 – Jan 2023
-    13: (1731542400, 1738368000),   # Set 13 Into the Arcane: Nov 2024 – Jan 2025
-    14: (1738368000, 1746057600),   # Set 14 Cyber City:    Jan 2025 – Apr 2025
-    15: (1746057600, 1752537600),   # Set 15 Magic n Mayhem: May 2025 – Jul 2025
-    16: (1752537600, 1774310400),   # Set 16:               Jul 2025 – Mar 2026
-    17: (1774310400, 9999999999),   # Set 17 (current):    Mar 2026 – present
+    12: (1722384000, 1732060800),   # Set 12 Magic N' Mayhem:  Jul 31 2024 – Nov 20 2024
+    13: (1732060800, 1743552000),   # Set 13 Into the Arcane:  Nov 20 2024 – Apr 02 2025
+    14: (1743552000, 1753833600),   # Set 14 Cyber City:       Apr 02 2025 – Jul 30 2025
+    15: (1753833600, 1764979200),   # Set 15 K.O. Coliseum:    Jul 30 2025 – Dec 03 2025
+    16: (1764979200, 1776211200),   # Set 16 Lore & Legends:   Dec 03 2025 – Apr 15 2026
+    17: (1776211200, 9999999999),   # Set 17 Space Gods:       Apr 15 2026 – present
 }
 
 
