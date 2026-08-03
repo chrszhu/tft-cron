@@ -1044,6 +1044,11 @@ def _backfill_set(platform: str, target_set: int, tier: str = "all"):
     now = int(time.time())
     effective_end = min(end_ts, now)  # don't query into the future
 
+    # Use only the last PATCH_WINDOW_DAYS of the set — reflects end-of-set meta
+    # (most refined comps/builds) and is 10x faster than the full set window.
+    window_floor = effective_end - PATCH_WINDOW_DAYS * 86400
+    start_ts = max(start_ts, window_floor)
+
     print(f"\n[backfill] ── Set {target_set} | {platform} ──")
     print(f"[backfill] Time window: {time.strftime('%Y-%m-%d', time.gmtime(start_ts))} "
           f"→ {time.strftime('%Y-%m-%d', time.gmtime(effective_end))}")
