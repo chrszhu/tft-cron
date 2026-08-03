@@ -81,7 +81,7 @@ MAX_RETRIES = 5
 BASE_DELAY = 1.0
 REQUEST_DELAY = 0.15
 FETCH_TIMEOUT = 30
-PATCH_WINDOW_DAYS = 14
+PATCH_WINDOW_DAYS = 30  # fetch last 30 days of the current set per player
 PLACEHOLDER_ITEMS = {"TFT_Item_EmptyBag", "TFT_Item_Empty", ""}
 NON_PLAYABLE_UNIT_MARKERS = {
     "PVE_", "FakeUnit", "TimebreakerCore", "TFT17_Summon",
@@ -357,11 +357,14 @@ def _fetch_match_ids(
     ignore_patch_floor: bool = False,  # skip the 14-day rolling floor
 ) -> list:
     if ignore_patch_floor:
+        # Backfill: use the set time window directly, no rolling floor
         floor_s = since_ts_s or 0
     else:
-        patch_start_env = int(os.environ.get("TFT_PATCH_START_TIMESTAMP", "0"))
-        patch_start = patch_start_env if patch_start_env > 0 else int(time.time()) - PATCH_WINDOW_DAYS * 86400
-        floor_s = max(since_ts_s or 0, patch_start)
+        # Current set: fetch the last PATCH_WINDOW_DAYS of matches.
+        # If the player already has a cursor (last seen match), use that
+        # instead so we only pull genuinely new matches.
+        rolling_floor = int(time.time()) - PATCH_WINDOW_DAYS * 86400
+        floor_s = max(since_ts_s or 0, rolling_floor)
 
     all_ids: list = []
     offset = 0

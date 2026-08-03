@@ -50,9 +50,8 @@ jobs:
 
       - name: Refresh Set 17
         env:
-          DATABASE_URL:              ${{ secrets.DATABASE_URL }}
-          TFT_ACTIVE_SET:            ${{ vars.TFT_ACTIVE_SET || '17' }}
-          TFT_PATCH_START_TIMESTAMP: ${{ vars.TFT_PATCH_START_TIMESTAMP || '1776211200' }}
+          DATABASE_URL:   ${{ secrets.DATABASE_URL }}
+          TFT_ACTIVE_SET: ${{ vars.TFT_ACTIVE_SET || '17' }}
         run: |
           echo "=== Set 17 refresh | $REGION / $TIER ==="
           python3 scripts/refresh.py --region "$REGION" --tier "$TIER"
