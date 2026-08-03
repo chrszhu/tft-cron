@@ -10,7 +10,7 @@ on:
       tier:
         description: "Tier: challenger / grandmaster / master / all"
         required: false
-        default: "all"
+        default: "challenger"
 
   # Fired automatically by the "retry" job when a run times out mid-way.
   # Treated identically to a manual trigger.
@@ -19,7 +19,7 @@ on:
 
 env:
   REGION: ${{ github.event.inputs.region || github.event.client_payload.region || 'na1' }}
-  TIER:   ${{ github.event.inputs.tier   || github.event.client_payload.tier   || 'all' }}
+  TIER:   ${{ github.event.inputs.tier   || github.event.client_payload.tier   || 'challenger' }}
 
 jobs:
 
