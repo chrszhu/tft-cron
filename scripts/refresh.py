@@ -81,7 +81,7 @@ MAX_RETRIES = 5
 BASE_DELAY = 1.0
 REQUEST_DELAY = 0.15
 FETCH_TIMEOUT = 30
-PATCH_WINDOW_DAYS = 30  # fetch last 30 days of the current set per player
+PATCH_WINDOW_DAYS = 7   # fetch last 7 days of the current set per player
 PLACEHOLDER_ITEMS = {"TFT_Item_EmptyBag", "TFT_Item_Empty", ""}
 NON_PLAYABLE_UNIT_MARKERS = {
     "PVE_", "FakeUnit", "TimebreakerCore", "TFT17_Summon",

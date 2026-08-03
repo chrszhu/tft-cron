@@ -147,41 +147,36 @@ jobs:
   # Requires ORCHESTRATOR_PAT: a classic GitHub token with the "repo" scope.
   # Create it once at: github.com/settings/tokens → Tokens (classic) → check "repo"
   retry:
-    name: "5 — Retry if incomplete"
+    name: "5 — Retry if timed out"
     needs: [refresh-current, backfill-14, backfill-15, backfill-16]
-    if: always()
+    # Only run if at least one job FAILED (timeout = failure in GitHub Actions).
+    # Skips entirely on manual cancellation (result = "cancelled") so we don't
+    # accidentally re-trigger a run the user deliberately stopped.
+    if: |
+      always() && (
+        needs.refresh-current.result == 'failure' ||
+        needs.backfill-14.result     == 'failure' ||
+        needs.backfill-15.result     == 'failure' ||
+        needs.backfill-16.result     == 'failure'
+      )
     runs-on: ubuntu-latest
     steps:
-      - name: Check if all jobs passed
-        id: check
+      - name: Show what failed
         run: |
-          S17="${{ needs.refresh-current.result }}"
-          S14="${{ needs.backfill-14.result }}"
-          S15="${{ needs.backfill-15.result }}"
-          S16="${{ needs.backfill-16.result }}"
-          echo "Results → Set17:$S17  Set14:$S14  Set15:$S15  Set16:$S16"
-          # "skipped" counts as incomplete (earlier job failed so later ones were skipped)
-          if [ "$S17" = "success" ] && [ "$S14" = "success" ] && \
-             [ "$S15" = "success" ] && [ "$S16" = "success" ]; then
-            echo "done=true" >> $GITHUB_OUTPUT
-          else
-            echo "done=false" >> $GITHUB_OUTPUT
-          fi
+          echo "Set17  : ${{ needs.refresh-current.result }}"
+          echo "Set14  : ${{ needs.backfill-14.result }}"
+          echo "Set15  : ${{ needs.backfill-15.result }}"
+          echo "Set16  : ${{ needs.backfill-16.result }}"
+          echo "⏳ At least one job timed out — triggering next run to resume…"
 
-      - name: All done!
-        if: steps.check.outputs.done == 'true'
-        run: echo "✅ All sets complete — no retry needed."
-
-      - name: Trigger next run to resume
-        if: steps.check.outputs.done == 'false'
+      - name: Trigger next run
         env:
           ORCHESTRATOR_PAT: ${{ secrets.ORCHESTRATOR_PAT }}
         run: |
-          echo "⏳ Some jobs didn't finish — triggering next run to resume…"
           SKIP="${{ github.event.inputs.skip_current || github.event.client_payload.skip_current || 'false' }}"
           curl -s -X POST \
             -H "Authorization: token $ORCHESTRATOR_PAT" \
             -H "Accept: application/vnd.github+json" \
             https://api.github.com/repos/chrszhu/tft-cron/dispatches \
             -d "{\"event_type\":\"continue-refresh\",\"client_payload\":{\"region\":\"$REGION\",\"tier\":\"$TIER\",\"skip_current\":\"$SKIP\"}}"
-          echo "Next run queued — it will resume from where this one stopped."
+          echo "✅ Next run queued — resumes from where this one stopped."
