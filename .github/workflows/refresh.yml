@@ -12,8 +12,8 @@ on:
         required: false
         default: "all"
 
-  # Fired by the "chain" job below when work is still remaining.
-  # Treated identically to workflow_dispatch.
+  # Fired automatically by the "retry" job when a run times out mid-way.
+  # Treated identically to a manual trigger.
   repository_dispatch:
     types: [continue-refresh]
 
@@ -21,40 +21,26 @@ env:
   REGION: ${{ github.event.inputs.region || github.event.client_payload.region || 'na1' }}
   TIER:   ${{ github.event.inputs.tier   || github.event.client_payload.tier   || 'all' }}
 
-# ── Reusable setup steps (referenced by each job) ─────────────────────────────
-# GitHub Actions doesn't support YAML anchors natively so we repeat the
-# short setup block in each job — it's only 3 lines.
-
 jobs:
 
-  # ── Job 1: Current set (Set 17) live refresh ────────────────────────────────
-  # Uses RIOT_API_KEY_1 if set, otherwise falls back to RIOT_API_KEY.
-  # After finishing, generates the static snapshot and pushes it to the
-  # private app repo so Vercel redeploys automatically.
+  # ── Step 1: Current set (Set 17) ────────────────────────────────────────────
+  # Fetches the live ladder + last 30 days of matches per player.
+  # Uses a cursor so re-runs only fetch NEW matches — fast if mostly done.
   refresh-current:
-    name: "Set 17 — live refresh"
+    name: "1 — Set 17 (current)"
     runs-on: ubuntu-latest
     timeout-minutes: 360
-
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12", cache: "pip" }
       - run: pip install -r requirements.txt
-
-      - name: Pick API key (KEY_1 → fallback to RIOT_API_KEY)
-        run: |
-          KEY="${{ secrets.RIOT_API_KEY_1 }}"
-          if [ -z "$KEY" ]; then KEY="${{ secrets.RIOT_API_KEY }}"; fi
-          echo "RIOT_API_KEY=$KEY" >> $GITHUB_ENV
-
-      - name: Refresh Set 17
+      - name: Run refresh
         env:
+          RIOT_API_KEY:   ${{ secrets.RIOT_API_KEY }}
           DATABASE_URL:   ${{ secrets.DATABASE_URL }}
           TFT_ACTIVE_SET: ${{ vars.TFT_ACTIVE_SET || '17' }}
-        run: |
-          echo "=== Set 17 refresh | $REGION / $TIER ==="
-          python3 scripts/refresh.py --region "$REGION" --tier "$TIER"
+        run: python3 scripts/refresh.py --region "$REGION" --tier "$TIER"
 
       - name: Push snapshot to private app repo
         env:
@@ -62,160 +48,123 @@ jobs:
           APP_REPO:     ${{ vars.APP_REPO }}
         run: |
           SNAPSHOTS=(public/data/snapshot_*.json)
-          if [ ! -f "${SNAPSHOTS[0]}" ]; then
-            echo "No snapshot files — skipping push."; exit 0
-          fi
+          [ -f "${SNAPSHOTS[0]}" ] || { echo "No snapshot — skipping."; exit 0; }
           git clone --depth 1 \
-            "https://x-access-token:${APP_REPO_PAT}@github.com/${APP_REPO}.git" _app_repo
-          mkdir -p _app_repo/public/data
-          cp public/data/snapshot_*.json _app_repo/public/data/
-          cd _app_repo
+            "https://x-access-token:${APP_REPO_PAT}@github.com/${APP_REPO}.git" _app
+          mkdir -p _app/public/data
+          cp public/data/snapshot_*.json _app/public/data/
+          cd _app
           git config user.name  "tft-orchestrator[bot]"
           git config user.email "tft-orchestrator[bot]@users.noreply.github.com"
           git add public/data/snapshot_*.json
           if git diff --cached --quiet; then
-            echo "Snapshot unchanged — nothing to push."
+            echo "Snapshot unchanged."
           else
             git commit -m "data: refresh TFT snapshot ($(date -u '+%Y-%m-%d %H:%M UTC'))"
-            git push
-            echo "Pushed — Vercel will redeploy."
+            git push && echo "Pushed — Vercel will redeploy."
           fi
 
-  # ── Job 2: Backfill Set 14 ──────────────────────────────────────────────────
-  # Uses RIOT_API_KEY_2 if set, otherwise falls back to RIOT_API_KEY.
-  # Runs fully in parallel with the other jobs (own key = own rate limit bucket).
-  backfill-set-14:
-    name: "Set 14 — backfill"
+  # ── Step 2: Backfill Set 14 ──────────────────────────────────────────────────
+  # Only runs if Step 1 succeeded.
+  # Already-processed players are skipped, so re-runs resume from where
+  # a previous timed-out run left off.
+  backfill-14:
+    name: "2 — Set 14 (backfill)"
+    needs: refresh-current
+    if: success()
     runs-on: ubuntu-latest
     timeout-minutes: 360
-
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12", cache: "pip" }
       - run: pip install -r requirements.txt
-
-      - name: Pick API key (KEY_2 → fallback to RIOT_API_KEY)
-        run: |
-          KEY="${{ secrets.RIOT_API_KEY_2 }}"
-          if [ -z "$KEY" ]; then KEY="${{ secrets.RIOT_API_KEY }}"; fi
-          echo "RIOT_API_KEY=$KEY" >> $GITHUB_ENV
-
       - name: Backfill Set 14
         env:
+          RIOT_API_KEY:   ${{ secrets.RIOT_API_KEY }}
           DATABASE_URL:   ${{ secrets.DATABASE_URL }}
           TFT_ACTIVE_SET: ${{ vars.TFT_ACTIVE_SET || '17' }}
-        run: |
-          echo "=== Backfill Set 14 | $REGION / $TIER ==="
-          python3 scripts/refresh.py --region "$REGION" --tier "$TIER" --backfill-set 14
+        run: python3 scripts/refresh.py --region "$REGION" --tier "$TIER" --backfill-set 14
 
-  # ── Job 3: Backfill Set 15 ──────────────────────────────────────────────────
-  backfill-set-15:
-    name: "Set 15 — backfill"
+  # ── Step 3: Backfill Set 15 ──────────────────────────────────────────────────
+  backfill-15:
+    name: "3 — Set 15 (backfill)"
+    needs: backfill-14
+    if: success()
     runs-on: ubuntu-latest
     timeout-minutes: 360
-
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12", cache: "pip" }
       - run: pip install -r requirements.txt
-
-      - name: Pick API key (KEY_3 → fallback to RIOT_API_KEY)
-        run: |
-          KEY="${{ secrets.RIOT_API_KEY_3 }}"
-          if [ -z "$KEY" ]; then KEY="${{ secrets.RIOT_API_KEY }}"; fi
-          echo "RIOT_API_KEY=$KEY" >> $GITHUB_ENV
-
       - name: Backfill Set 15
         env:
+          RIOT_API_KEY:   ${{ secrets.RIOT_API_KEY }}
           DATABASE_URL:   ${{ secrets.DATABASE_URL }}
           TFT_ACTIVE_SET: ${{ vars.TFT_ACTIVE_SET || '17' }}
-        run: |
-          echo "=== Backfill Set 15 | $REGION / $TIER ==="
-          python3 scripts/refresh.py --region "$REGION" --tier "$TIER" --backfill-set 15
+        run: python3 scripts/refresh.py --region "$REGION" --tier "$TIER" --backfill-set 15
 
-  # ── Job 4: Backfill Set 16 ──────────────────────────────────────────────────
-  backfill-set-16:
-    name: "Set 16 — backfill"
+  # ── Step 4: Backfill Set 16 ──────────────────────────────────────────────────
+  backfill-16:
+    name: "4 — Set 16 (backfill)"
+    needs: backfill-15
+    if: success()
     runs-on: ubuntu-latest
     timeout-minutes: 360
-
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12", cache: "pip" }
       - run: pip install -r requirements.txt
-
-      - name: Pick API key (KEY_4 → fallback to RIOT_API_KEY)
-        run: |
-          KEY="${{ secrets.RIOT_API_KEY_4 }}"
-          if [ -z "$KEY" ]; then KEY="${{ secrets.RIOT_API_KEY }}"; fi
-          echo "RIOT_API_KEY=$KEY" >> $GITHUB_ENV
-
       - name: Backfill Set 16
         env:
+          RIOT_API_KEY:   ${{ secrets.RIOT_API_KEY }}
           DATABASE_URL:   ${{ secrets.DATABASE_URL }}
           TFT_ACTIVE_SET: ${{ vars.TFT_ACTIVE_SET || '17' }}
-        run: |
-          echo "=== Backfill Set 16 | $REGION / $TIER ==="
-          python3 scripts/refresh.py --region "$REGION" --tier "$TIER" --backfill-set 16
+        run: python3 scripts/refresh.py --region "$REGION" --tier "$TIER" --backfill-set 16
 
-  # ── Job 5: Auto-chain ───────────────────────────────────────────────────────
-  # Runs after all jobs finish (even if some timed out / failed).
-  # Queries the DB to check if Set 17 still has players without insights.
-  # If yes → fires a repository_dispatch to restart the whole workflow,
-  # which will resume from the cursor (no duplicate work).
-  # Requires ORCHESTRATOR_PAT: a classic PAT with the `repo` scope on
-  # THIS (tft-cron) repo so it can fire repository_dispatch events.
-  chain-if-incomplete:
-    name: "Auto-chain if work remains"
+  # ── Step 5: Auto-retry if anything failed or timed out ───────────────────────
+  # Runs last, regardless of whether earlier jobs succeeded or failed.
+  # If any step didn't finish, fires a repository_dispatch to restart the
+  # whole workflow — each job resumes from where it left off (cursor / skip).
+  # Requires ORCHESTRATOR_PAT: a classic GitHub token with the "repo" scope.
+  # Create it once at: github.com/settings/tokens → Tokens (classic) → check "repo"
+  retry:
+    name: "5 — Retry if incomplete"
+    needs: [refresh-current, backfill-14, backfill-15, backfill-16]
+    if: always()
     runs-on: ubuntu-latest
-    needs: [refresh-current, backfill-set-14, backfill-set-15, backfill-set-16]
-    if: always()   # run even if upstream jobs timed out or failed
-
     steps:
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.12" }
-      - run: pip install psycopg2-binary
-
-      - name: Check remaining work
+      - name: Check if all jobs passed
         id: check
-        env:
-          DATABASE_URL:   ${{ secrets.DATABASE_URL }}
-          TFT_ACTIVE_SET: ${{ vars.TFT_ACTIVE_SET || '17' }}
         run: |
-          python3 - <<'PYEOF'
-          import os, psycopg2
-          conn = psycopg2.connect(os.environ['DATABASE_URL'])
-          active = int(os.environ.get('TFT_ACTIVE_SET', '17'))
-          with conn.cursor() as cur:
-              cur.execute(
-                  "SELECT COUNT(*) FROM challenger_players "
-                  "WHERE set_number=%s AND insights IS NULL",
-                  [active]
-              )
-              remaining = cur.fetchone()[0]
-          conn.close()
-          print(f"Remaining players without insights: {remaining}")
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-              f.write(f"remaining={remaining}\n")
-          PYEOF
+          S17="${{ needs.refresh-current.result }}"
+          S14="${{ needs.backfill-14.result }}"
+          S15="${{ needs.backfill-15.result }}"
+          S16="${{ needs.backfill-16.result }}"
+          echo "Results → Set17:$S17  Set14:$S14  Set15:$S15  Set16:$S16"
+          # "skipped" counts as incomplete (earlier job failed so later ones were skipped)
+          if [ "$S17" = "success" ] && [ "$S14" = "success" ] && \
+             [ "$S15" = "success" ] && [ "$S16" = "success" ]; then
+            echo "done=true" >> $GITHUB_OUTPUT
+          else
+            echo "done=false" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Trigger next run (if work remains)
-        if: steps.check.outputs.remaining != '0'
+      - name: All done!
+        if: steps.check.outputs.done == 'true'
+        run: echo "✅ All sets complete — no retry needed."
+
+      - name: Trigger next run to resume
+        if: steps.check.outputs.done == 'false'
         env:
           ORCHESTRATOR_PAT: ${{ secrets.ORCHESTRATOR_PAT }}
         run: |
-          REMAINING="${{ steps.check.outputs.remaining }}"
-          echo "$REMAINING players still need insights — chaining next run…"
+          echo "⏳ Some jobs didn't finish — triggering next run to resume…"
           curl -s -X POST \
             -H "Authorization: token $ORCHESTRATOR_PAT" \
             -H "Accept: application/vnd.github+json" \
             https://api.github.com/repos/chrszhu/tft-cron/dispatches \
             -d "{\"event_type\":\"continue-refresh\",\"client_payload\":{\"region\":\"$REGION\",\"tier\":\"$TIER\"}}"
-          echo "Next run triggered."
-
-      - name: Done
-        if: steps.check.outputs.remaining == '0'
-        run: echo "All players have insights — no chain needed."
+          echo "Next run queued — it will resume from where this one stopped."

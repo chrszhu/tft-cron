@@ -1071,11 +1071,26 @@ def _backfill_set(platform: str, target_set: int, tier: str = "all"):
             print(f"[backfill] No PUUIDs found for {run_tier} on {platform} — skipping.")
             continue
 
+        # Skip players already processed in a previous (possibly timed-out) run.
+        # This makes re-runs resume from where they left off rather than restarting.
+        done_rows = _execute(
+            "SELECT puuid FROM historical_insights WHERE platform=%s AND tier=%s AND set_number=%s",
+            [platform, run_tier, target_set], fetch="all",
+        ) or []
+        done_puuids = {r["puuid"] for r in done_rows}
+        remaining = [r for r in rows if r["puuid"] not in done_puuids]
+
+        if not remaining:
+            print(f"[backfill] {run_tier} Set {target_set}: already complete ({len(rows)} players). Skipping.")
+            continue
+
         routing = PLATFORM_ROUTING.get(platform)
         if not routing:
             print(f"[backfill] Unknown routing for {platform}"); continue
 
-        print(f"\n[backfill] Processing {len(rows)} {run_tier} PUUIDs for Set {target_set}…")
+        print(f"\n[backfill] {run_tier} Set {target_set}: {len(done_puuids)} already done, "
+              f"{len(remaining)} remaining…")
+        rows = remaining
         found = 0
 
         for i, row in enumerate(rows):
