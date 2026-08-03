@@ -21,6 +21,12 @@ on:
   repository_dispatch:
     types: [continue-refresh]
 
+# Only one run at a time — if a new trigger arrives while one is running,
+# cancel the old one and start fresh (safe because all jobs resume from cursor/skip).
+concurrency:
+  group: tft-refresh
+  cancel-in-progress: true
+
 env:
   REGION: ${{ github.event.inputs.region || github.event.client_payload.region || 'na1' }}
   TIER:   ${{ github.event.inputs.tier   || github.event.client_payload.tier   || 'challenger' }}
