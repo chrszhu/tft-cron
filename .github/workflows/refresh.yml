@@ -11,6 +11,10 @@ on:
         description: "Tier: challenger / grandmaster / master / all"
         required: false
         default: "challenger"
+      skip_current:
+        description: "Skip Set 17 refresh and go straight to historical backfills (true/false)"
+        required: false
+        default: "false"
 
   # Fired automatically by the "retry" job when a run times out mid-way.
   # Treated identically to a manual trigger.
@@ -40,7 +44,13 @@ jobs:
           RIOT_API_KEY:   ${{ secrets.RIOT_API_KEY }}
           DATABASE_URL:   ${{ secrets.DATABASE_URL }}
           TFT_ACTIVE_SET: ${{ vars.TFT_ACTIVE_SET || '17' }}
-        run: python3 scripts/refresh.py --region "$REGION" --tier "$TIER"
+          SKIP_CURRENT:   ${{ github.event.inputs.skip_current || github.event.client_payload.skip_current || 'false' }}
+        run: |
+          if [ "$SKIP_CURRENT" = "true" ]; then
+            echo "Skipping Set 17 refresh as requested — proceeding to historical backfills."
+          else
+            python3 scripts/refresh.py --region "$REGION" --tier "$TIER"
+          fi
 
       - name: Push snapshot to private app repo
         env:
@@ -162,9 +172,10 @@ jobs:
           ORCHESTRATOR_PAT: ${{ secrets.ORCHESTRATOR_PAT }}
         run: |
           echo "⏳ Some jobs didn't finish — triggering next run to resume…"
+          SKIP="${{ github.event.inputs.skip_current || github.event.client_payload.skip_current || 'false' }}"
           curl -s -X POST \
             -H "Authorization: token $ORCHESTRATOR_PAT" \
             -H "Accept: application/vnd.github+json" \
             https://api.github.com/repos/chrszhu/tft-cron/dispatches \
-            -d "{\"event_type\":\"continue-refresh\",\"client_payload\":{\"region\":\"$REGION\",\"tier\":\"$TIER\"}}"
+            -d "{\"event_type\":\"continue-refresh\",\"client_payload\":{\"region\":\"$REGION\",\"tier\":\"$TIER\",\"skip_current\":\"$SKIP\"}}"
           echo "Next run queued — it will resume from where this one stopped."
