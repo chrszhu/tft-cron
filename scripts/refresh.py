@@ -81,7 +81,7 @@ MAX_RETRIES = 5
 BASE_DELAY = 1.0
 REQUEST_DELAY = 0.15
 FETCH_TIMEOUT = 30
-PATCH_WINDOW_DAYS = 7   # fetch last 7 days of the current set per player
+PATCH_WINDOW_DAYS = 7   # rolling window for current-set refresh; also used for historical backfills
 PLACEHOLDER_ITEMS = {"TFT_Item_EmptyBag", "TFT_Item_Empty", ""}
 NON_PLAYABLE_UNIT_MARKERS = {
     "PVE_", "FakeUnit", "TimebreakerCore", "TFT17_Summon",
@@ -289,6 +289,13 @@ def _is_non_playable(character_id: str) -> bool:
 
 
 # ── Riot API ──────────────────────────────────────────────────────────────────
+class ApiKeyExpiredError(SystemExit):
+    """Raised (exit code 2) when Riot returns 401/403 — key is invalid or expired."""
+    def __init__(self, status: int):
+        super().__init__(2)
+        self.status = status
+
+
 def _fetch(url: str, api_key: str) -> Optional[requests.Response]:
     for attempt in range(MAX_RETRIES + 1):
         try:
@@ -298,6 +305,10 @@ def _fetch(url: str, api_key: str) -> Optional[requests.Response]:
             continue
         if resp.ok:
             return resp
+        if resp.status_code in (401, 403):
+            print(f"\n[ERROR] Riot API returned {resp.status_code} — API key is invalid or expired.")
+            print("[ERROR] Update RIOT_API_KEY in GitHub Secrets and re-run the workflow.")
+            raise ApiKeyExpiredError(resp.status_code)
         if resp.status_code == 429:
             delay = float(resp.headers.get("Retry-After", BASE_DELAY * (attempt + 1)))
             time.sleep(delay)
@@ -708,15 +719,34 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2) 
     return results[:30]
 
 
-def _cache_archetypes(platform: str, tier: str, active_set: int):
+def _cache_archetypes(platform: str, tier: str, active_set: int, target_set: int | None = None):
+    """
+    Compute and cache comp archetypes for a given set.
+
+    For the active set, reads from challenger_players.
+    For historical sets, reads from historical_insights (which may contain
+    data pooled from multiple tiers — all stored as 'challenger').
+    """
+    set_num = target_set if target_set is not None else active_set
+    is_historical = (set_num != active_set)
+
     now = int(time.time() * 1000)
     patch_start = int(time.time()) - PATCH_WINDOW_DAYS * 86400
-    rows = _execute(
-        "SELECT COALESCE(insights->'topBoards', insights->'winBoards') AS boards "
-        "FROM challenger_players "
-        "WHERE platform=%s AND tier=%s AND insights IS NOT NULL AND set_number=%s",
-        [platform, tier, active_set], fetch="all",
-    )
+
+    if is_historical:
+        rows = _execute(
+            "SELECT COALESCE(insights->'topBoards', insights->'winBoards') AS boards "
+            "FROM historical_insights "
+            "WHERE platform=%s AND tier=%s AND insights IS NOT NULL AND set_number=%s",
+            [platform, tier, set_num], fetch="all",
+        )
+    else:
+        rows = _execute(
+            "SELECT COALESCE(insights->'topBoards', insights->'winBoards') AS boards "
+            "FROM challenger_players "
+            "WHERE platform=%s AND tier=%s AND insights IS NOT NULL AND set_number=%s",
+            [platform, tier, active_set], fetch="all",
+        )
     all_boards: list = []
     player_count = 0
     for row in (rows or []):
@@ -738,13 +768,13 @@ def _cache_archetypes(platform: str, tier: str, active_set: int):
         "patchStartTs": patch_start,
         "patchWindowDays": PATCH_WINDOW_DAYS,
     }
-    db_key = f"archetypes:{platform}:{tier}:{active_set}"
+    db_key = f"archetypes:{platform}:{tier}:{set_num}"
     _execute(
         "INSERT INTO meta_cache (cache_key, payload, computed_at) VALUES (%s, %s, %s) "
         "ON CONFLICT (cache_key) DO UPDATE SET payload=EXCLUDED.payload, computed_at=EXCLUDED.computed_at",
         [db_key, json.dumps(result), now],
     )
-    print(f"[archetypes] Set {active_set}: {len(archetypes)} archetypes from {len(all_boards)} boards → cached")
+    print(f"[archetypes] Set {set_num}: {len(archetypes)} archetypes from {len(all_boards)} boards → cached")
 
 
 # ── Static snapshot export ────────────────────────────────────────────────────
@@ -960,6 +990,178 @@ def _export_static_snapshot(platform: str, tier: str, active_set: int):
     print(f"[snapshot] Commit public/data/ and push to trigger a Vercel redeploy.")
 
 
+def _export_historical_snapshot(platform: str, tier: str, active_set: int, target_set: int):
+    """
+    Write a static JSON snapshot for a historical TFT set.
+
+    Reads from historical_insights (not challenger_players) so the shape is the
+    same as the current-set snapshot but sourced from the backfill table.
+    File: public/data/snapshot_{platform}_{tier}_{target_set}.json
+    """
+    import math
+
+    PAGE_SIZE = 20
+
+    print(f"\n[snapshot] Building historical snapshot for set {target_set}…")
+
+    # ── 1. Ladder page 1 from historical_insights ─────────────────────────────
+    page1_rows = _execute(
+        "SELECT * FROM historical_insights "
+        "WHERE platform=%s AND tier=%s AND set_number=%s "
+        "ORDER BY summoner_name ASC LIMIT %s",
+        [platform, tier, target_set, PAGE_SIZE], fetch="all",
+    ) or []
+
+    total_row = _execute(
+        "SELECT COUNT(*) AS cnt FROM historical_insights "
+        "WHERE platform=%s AND tier=%s AND set_number=%s",
+        [platform, tier, target_set], fetch="one",
+    )
+    total = int((total_row or {}).get("cnt", 0))
+
+    def _hist_row_to_entry(r: dict) -> dict:
+        ins = r.get("insights")
+        return {
+            "platform": r.get("platform"),
+            "tier": r.get("tier"),
+            "leaguePoints": None,
+            "puuid": r.get("puuid"),
+            "summonerId": None,
+            "summonerName": r.get("summoner_name"),
+            "wins": None,
+            "losses": None,
+            "rank": None,
+            "inactive": False,
+            "freshBlood": False,
+            "hotStreak": False,
+            "ladderPosition": None,
+            "insights": ins,
+            "insightsError": None,
+            "insightsFetchedAt": r.get("computed_at"),
+            "profileIconId": None,
+            "setNumber": r.get("set_number"),
+        }
+
+    ladder = {
+        "meta": {
+            "region": platform,
+            "tier": tier,
+            "totalEntries": total,
+            "page": 1,
+            "pageSize": PAGE_SIZE,
+            "totalPages": max(1, math.ceil(total / PAGE_SIZE)),
+            "ladderSource": "cache",
+            "activeSet": active_set,
+        },
+        "entries": [_hist_row_to_entry(r) for r in page1_rows],
+    }
+
+    # ── 2. Global summary from historical_insights ────────────────────────────
+    all_rows = _execute(
+        "SELECT insights FROM historical_insights "
+        "WHERE platform=%s AND tier=%s AND insights IS NOT NULL AND set_number=%s",
+        [platform, tier, target_set], fetch="all",
+    ) or []
+
+    item_map: dict = {}
+    unit_map: dict = {}
+    trait_map: dict = {}
+    gs_player_count = 0
+
+    for row in all_rows:
+        ins = row.get("insights") or {}
+        top_items = ins.get("topItems") or []
+        top_units = ins.get("topUnits") or []
+        top_traits = ins.get("topTraits") or []
+        if not top_items and not top_units and not top_traits:
+            continue
+        gs_player_count += 1
+        for item in top_items:
+            n = item.get("name")
+            if n:
+                e = item_map.setdefault(n, {"games": 0, "iconUrl": item.get("iconUrl")})
+                e["games"] += item.get("games", 0)
+        for unit in top_units:
+            n = unit.get("name")
+            if n:
+                e = unit_map.setdefault(n, {"games": 0, "iconUrl": unit.get("iconUrl"), "cost": unit.get("cost")})
+                e["games"] += unit.get("games", 0)
+        for trait in top_traits:
+            n = trait.get("name")
+            if n:
+                e = trait_map.setdefault(n, {"games": 0, "iconUrl": trait.get("iconUrl")})
+                e["games"] += trait.get("games", 0)
+
+    def _top_n(d: dict, n: int = 20) -> list:
+        return sorted([{"name": k, **v} for k, v in d.items()], key=lambda x: -x.get("games", 0))[:n]
+
+    global_summary = {
+        "topItems": _top_n(item_map),
+        "topUnits": _top_n(unit_map),
+        "topTraits": _top_n(trait_map),
+        "playerCount": gs_player_count,
+    }
+
+    # ── 3. Winning boards from meta_cache ─────────────────────────────────────
+    db_key = f"archetypes:{platform}:{tier}:{target_set}"
+    archetype_row = _execute("SELECT payload FROM meta_cache WHERE cache_key=%s", [db_key], fetch="one")
+    winning_boards = (archetype_row or {}).get("payload") or {"archetypes": [], "totalBoards": 0, "playerCount": 0}
+
+    # ── 4. Champion explorer from historical_insights ─────────────────────────
+    unit_data: dict = {}
+    for row in all_rows:
+        ins = row.get("insights") or {}
+        for holder in (ins.get("itemHolders") or []):
+            uname = holder.get("unitName")
+            if not uname:
+                continue
+            ud = unit_data.setdefault(uname, {"iconUrl": holder.get("unitIconUrl"), "games": 0, "items": {}})
+            ud["games"] += holder.get("games") or 1
+            for item in (holder.get("items") or []):
+                iname = item.get("name")
+                if iname:
+                    ie = ud["items"].setdefault(iname, {"count": 0, "iconUrl": item.get("iconUrl")})
+                    ie["count"] += 1
+
+    champion_explorer = sorted(
+        [
+            {
+                "unitName": uname,
+                "unitIconUrl": data["iconUrl"],
+                "games": data["games"],
+                "cost": None,
+                "topItems": sorted(
+                    [{"name": k, "iconUrl": v["iconUrl"], "count": v["count"]} for k, v in data["items"].items()],
+                    key=lambda x: -x["count"],
+                )[:10],
+            }
+            for uname, data in unit_data.items()
+        ],
+        key=lambda x: -x["games"],
+    )
+
+    # ── 5. Assemble and write ─────────────────────────────────────────────────
+    snapshot = {
+        "generatedAt": int(time.time() * 1000),
+        "region": platform,
+        "tier": tier,
+        "setNum": target_set,
+        "ladder": ladder,
+        "globalSummary": global_summary,
+        "winningBoards": winning_boards,
+        "championExplorer": champion_explorer,
+    }
+
+    out_dir = Path(__file__).resolve().parent.parent / "public" / "data"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"snapshot_{platform}_{tier}_{target_set}.json"
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(snapshot, f, separators=(",", ":"), default=str)
+
+    size_kb = out_path.stat().st_size // 1024
+    print(f"[snapshot] Wrote {out_path.name} ({size_kb} KB, {total} players)")
+
+
 # ── Retag historical data ──────────────────────────────────────────────────────
 def _retag_historical(platform: str, active_set: int):
     """Re-tag all set_number=0 (pre-tracking) rows as active_set, then recompute
@@ -1044,8 +1246,8 @@ def _backfill_set(platform: str, target_set: int, tier: str = "all"):
     now = int(time.time())
     effective_end = min(end_ts, now)  # don't query into the future
 
-    # Use only the last PATCH_WINDOW_DAYS of the set — reflects end-of-set meta
-    # (most refined comps/builds) and is 10x faster than the full set window.
+    # Use the last PATCH_WINDOW_DAYS of the set — captures end-of-set meta
+    # (most refined comps) while keeping the backfill fast enough to finish in one run.
     window_floor = effective_end - PATCH_WINDOW_DAYS * 86400
     start_ts = max(start_ts, window_floor)
 
@@ -1056,23 +1258,26 @@ def _backfill_set(platform: str, target_set: int, tier: str = "all"):
     # Load catalog for the target set
     catalog = _fetch_catalog(target_set)
 
-    # Tiers to backfill
-    tiers_to_run = ["challenger", "grandmaster", "master"] if tier == "all" else [tier]
+    # For historical backfills we pool ALL high-elo PUUIDs (challenger + grandmaster)
+    # to maximise sample size — current challengers alone have a very low hit-rate
+    # against sets from 1-2 years ago, since the player base turns over.
+    # All results are stored under tier='challenger' in historical_insights since
+    # we can't know a player's actual tier at the time of that historical set.
+    run_tier = "challenger"  # storage tier label for historical_insights
 
-    for run_tier in tiers_to_run:
-        # Get all distinct PUUIDs we've ever seen for this platform/tier.
-        # DISTINCT ON keeps one row per puuid (the most recently refreshed one for the name).
-        rows = _execute(
-            """SELECT DISTINCT ON (puuid) puuid, summoner_name
-               FROM challenger_players
-               WHERE platform=%s AND tier=%s AND puuid != ''
-               ORDER BY puuid, insights_fetched_at DESC NULLS LAST""",
-            [platform, run_tier], fetch="all",
-        ) or []
+    all_puuid_rows = _execute(
+        """SELECT DISTINCT ON (puuid) puuid, summoner_name
+           FROM challenger_players
+           WHERE platform=%s AND tier IN ('challenger', 'grandmaster') AND puuid != ''
+           ORDER BY puuid, insights_fetched_at DESC NULLS LAST""",
+        [platform], fetch="all",
+    ) or []
 
-        if not rows:
-            print(f"[backfill] No PUUIDs found for {run_tier} on {platform} — skipping.")
-            continue
+    if not all_puuid_rows:
+        print(f"[backfill] No PUUIDs found for {platform} — skipping.")
+    else:
+        rows = all_puuid_rows
+        print(f"[backfill] Pooled {len(rows)} unique PUUIDs (challenger + grandmaster)")
 
         # Skip players already processed in a previous (possibly timed-out) run.
         # This makes re-runs resume from where they left off rather than restarting.
@@ -1084,83 +1289,81 @@ def _backfill_set(platform: str, target_set: int, tier: str = "all"):
         remaining = [r for r in rows if r["puuid"] not in done_puuids]
 
         if not remaining:
-            print(f"[backfill] {run_tier} Set {target_set}: already complete ({len(rows)} players). Skipping.")
-            continue
+            print(f"[backfill] Set {target_set}: already complete ({len(rows)} players). Skipping.")
+        else:
+            routing = PLATFORM_ROUTING.get(platform)
+            if not routing:
+                print(f"[backfill] Unknown routing for {platform}")
+            else:
+                print(f"\n[backfill] Set {target_set}: {len(done_puuids)} already done, "
+                      f"{len(remaining)} remaining…")
+                rows = remaining
+                found = 0
 
-        routing = PLATFORM_ROUTING.get(platform)
-        if not routing:
-            print(f"[backfill] Unknown routing for {platform}"); continue
+                for i, row in enumerate(rows):
+                    puuid = row["puuid"]
+                    time.sleep(REQUEST_DELAY)
 
-        print(f"\n[backfill] {run_tier} Set {target_set}: {len(done_puuids)} already done, "
-              f"{len(remaining)} remaining…")
-        rows = remaining
-        found = 0
+                    match_ids = _fetch_match_ids(
+                        routing, puuid, api_key,
+                        since_ts_s=start_ts,
+                        active_set=target_set,
+                        end_ts_s=effective_end,
+                        ignore_patch_floor=True,  # backfill ignores the rolling patch window
+                    )
 
-        for i, row in enumerate(rows):
-            puuid = row["puuid"]
-            time.sleep(REQUEST_DELAY)
+                    if not match_ids:
+                        print(f"\r[backfill]   {i+1}/{len(rows)} — {puuid[:12]}… no matches", end="", flush=True)
+                        continue
 
-            match_ids = _fetch_match_ids(
-                routing, puuid, api_key,
-                since_ts_s=start_ts,
-                active_set=target_set,
-                end_ts_s=effective_end,
-                ignore_patch_floor=True,  # backfill ignores the rolling patch window
-            )
+                    acc = _empty_acc()
+                    for mid in match_ids:
+                        time.sleep(REQUEST_DELAY)
+                        resp = _fetch(f"https://{routing}.api.riotgames.com/tft/match/v1/matches/{mid}", api_key)
+                        if not resp or not resp.ok:
+                            continue
+                        match = resp.json()
+                        match_set = match.get("info", {}).get("tft_set_number")
+                        if match_set is not None and match_set != target_set:
+                            continue
+                        participant = next(
+                            (p for p in match.get("info", {}).get("participants", []) if p.get("puuid") == puuid),
+                            None,
+                        )
+                        if not participant:
+                            continue
+                        match_ts_s = match.get("info", {}).get("game_datetime", 0) // 1000
+                        _accumulate(acc, participant, catalog, match_ts_s)
 
-            if not match_ids:
-                print(f"\r[backfill]   {i+1}/{len(rows)} — {puuid[:12]}… no matches", end="", flush=True)
-                continue
+                    if acc["matchCount"] == 0:
+                        continue
 
-            acc = _empty_acc()
-            for mid in match_ids:
-                time.sleep(REQUEST_DELAY)
-                resp = _fetch(f"https://{routing}.api.riotgames.com/tft/match/v1/matches/{mid}", api_key)
-                if not resp or not resp.ok:
-                    continue
-                match = resp.json()
-                # Double-check set number in match data
-                match_set = match.get("info", {}).get("tft_set_number")
-                if match_set is not None and match_set != target_set:
-                    continue
-                participant = next(
-                    (p for p in match.get("info", {}).get("participants", []) if p.get("puuid") == puuid),
-                    None,
-                )
-                if not participant:
-                    continue
-                match_ts_s = match.get("info", {}).get("game_datetime", 0) // 1000
-                _accumulate(acc, participant, catalog, match_ts_s)
+                    found += 1
+                    insights = _derive_insights(acc, catalog)
+                    insights["_raw"] = True
+                    insights["patchStartTs"] = start_ts
 
-            if acc["matchCount"] == 0:
-                continue
+                    # Write to historical_insights (separate table keyed by set_number).
+                    _execute(
+                        """INSERT INTO historical_insights
+                            (platform, tier, puuid, set_number, summoner_name, insights, computed_at)
+                           VALUES (%s, %s, %s, %s, %s, %s, %s)
+                           ON CONFLICT (platform, tier, puuid, set_number) DO UPDATE SET
+                             insights = EXCLUDED.insights,
+                             computed_at = EXCLUDED.computed_at""",
+                        [platform, run_tier, puuid, target_set,
+                         row.get("summoner_name"), json.dumps(insights), int(time.time() * 1000)],
+                    )
+                    print(f"\r[backfill]   {i+1}/{len(rows)} — {found} with Set {target_set} data", end="", flush=True)
 
-            found += 1
-            insights = _derive_insights(acc, catalog)
-            insights["_raw"] = True
-            insights["patchStartTs"] = start_ts
+                print()
+                print(f"[backfill] {found}/{len(rows)} players had Set {target_set} match data.")
 
-            # Write to historical_insights (separate table keyed by set_number).
-            # This keeps historical sets from colliding with the current-season rows
-            # in challenger_players (whose PK is (platform, tier, puuid) — no set_number).
-            _execute(
-                """INSERT INTO historical_insights
-                    (platform, tier, puuid, set_number, summoner_name, insights, computed_at)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s)
-                   ON CONFLICT (platform, tier, puuid, set_number) DO UPDATE SET
-                     insights = EXCLUDED.insights,
-                     computed_at = EXCLUDED.computed_at""",
-                [platform, run_tier, puuid, target_set,
-                 row.get("summoner_name"), json.dumps(insights), int(time.time() * 1000)],
-            )
-            print(f"\r[backfill]   {i+1}/{len(rows)} — {found} with Set {target_set} data", end="", flush=True)
-
-        print()
-        print(f"[backfill] {run_tier}: {found}/{len(rows)} players had Set {target_set} match data.")
-
-        if found > 0:
-            print(f"[backfill] Computing archetypes for {run_tier} Set {target_set}…")
-            _cache_archetypes(platform, run_tier, target_set)
+                if found > 0:
+                    print(f"[backfill] Computing archetypes for Set {target_set}…")
+                    active_set_num = int(os.environ.get("TFT_ACTIVE_SET", "17"))
+                    _cache_archetypes(platform, run_tier, active_set=active_set_num, target_set=target_set)
+                    _export_historical_snapshot(platform, run_tier, active_set_num, target_set)
 
     print(f"\n[backfill] Done! Set {target_set} data is now in the DB.")
     print("[backfill] The UI set-selector will show it automatically on next page load.")
