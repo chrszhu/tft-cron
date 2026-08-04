@@ -16,13 +16,9 @@ on:
         required: false
         default: "false"
 
-  # Fired automatically by the "retry" job when a run times out mid-way.
-  # Treated identically to a manual trigger.
   repository_dispatch:
     types: [continue-refresh]
 
-# Only one run at a time — if a new trigger arrives while one is running,
-# cancel the old one and start fresh (safe because all jobs resume from cursor/skip).
 concurrency:
   group: tft-refresh
   cancel-in-progress: true
@@ -33,19 +29,20 @@ env:
 
 jobs:
 
-  # ── Step 1: Current set (Set 17) ────────────────────────────────────────────
-  # Fetches the live ladder + last 30 days of matches per player.
-  # Uses a cursor so re-runs only fetch NEW matches — fast if mostly done.
+  # ── Step 1: Current set (Set 17) ─────────────────────────────────────────────
   refresh-current:
     name: "1 — Set 17 (current)"
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    outputs:
+      key_expired: ${{ steps.run.outputs.key_expired }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12", cache: "pip" }
       - run: pip install -r requirements.txt
       - name: Run refresh
+        id: run
         env:
           RIOT_API_KEY:   ${{ secrets.RIOT_API_KEY }}
           DATABASE_URL:   ${{ secrets.DATABASE_URL }}
@@ -53,12 +50,18 @@ jobs:
           SKIP_CURRENT:   ${{ github.event.inputs.skip_current || github.event.client_payload.skip_current || 'false' }}
         run: |
           if [ "$SKIP_CURRENT" = "true" ]; then
-            echo "Skipping Set 17 refresh as requested — proceeding to historical backfills."
+            echo "Skipping Set 17 refresh as requested."
           else
             python3 scripts/refresh.py --region "$REGION" --tier "$TIER"
+            EXIT=$?
+            if [ $EXIT -eq 2 ]; then
+              echo "key_expired=true" >> "$GITHUB_OUTPUT"
+              exit 2
+            fi
           fi
 
       - name: Push snapshot to private app repo
+        if: success()
         env:
           APP_REPO_PAT: ${{ secrets.APP_REPO_PAT }}
           APP_REPO:     ${{ vars.APP_REPO }}
@@ -80,96 +83,129 @@ jobs:
             git push && echo "Pushed — Vercel will redeploy."
           fi
 
-  # ── Step 2: Backfill Set 14 ──────────────────────────────────────────────────
-  # Only runs if Step 1 succeeded.
-  # Already-processed players are skipped, so re-runs resume from where
-  # a previous timed-out run left off.
+  # ── Step 2: Backfill Set 14 ───────────────────────────────────────────────────
   backfill-14:
     name: "2 — Set 14 (backfill)"
     needs: refresh-current
     if: success()
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    outputs:
+      key_expired: ${{ steps.run.outputs.key_expired }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12", cache: "pip" }
       - run: pip install -r requirements.txt
       - name: Backfill Set 14
+        id: run
         env:
           RIOT_API_KEY:   ${{ secrets.RIOT_API_KEY }}
           DATABASE_URL:   ${{ secrets.DATABASE_URL }}
           TFT_ACTIVE_SET: ${{ vars.TFT_ACTIVE_SET || '17' }}
-        run: python3 scripts/refresh.py --region "$REGION" --tier "$TIER" --backfill-set 14
+        run: |
+          python3 scripts/refresh.py --region "$REGION" --tier "$TIER" --backfill-set 14
+          EXIT=$?
+          [ $EXIT -eq 2 ] && echo "key_expired=true" >> "$GITHUB_OUTPUT"
+          exit $EXIT
 
-  # ── Step 3: Backfill Set 15 ──────────────────────────────────────────────────
+  # ── Step 3: Backfill Set 15 ───────────────────────────────────────────────────
   backfill-15:
     name: "3 — Set 15 (backfill)"
     needs: backfill-14
     if: success()
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    outputs:
+      key_expired: ${{ steps.run.outputs.key_expired }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12", cache: "pip" }
       - run: pip install -r requirements.txt
       - name: Backfill Set 15
+        id: run
         env:
           RIOT_API_KEY:   ${{ secrets.RIOT_API_KEY }}
           DATABASE_URL:   ${{ secrets.DATABASE_URL }}
           TFT_ACTIVE_SET: ${{ vars.TFT_ACTIVE_SET || '17' }}
-        run: python3 scripts/refresh.py --region "$REGION" --tier "$TIER" --backfill-set 15
+        run: |
+          python3 scripts/refresh.py --region "$REGION" --tier "$TIER" --backfill-set 15
+          EXIT=$?
+          [ $EXIT -eq 2 ] && echo "key_expired=true" >> "$GITHUB_OUTPUT"
+          exit $EXIT
 
-  # ── Step 4: Backfill Set 16 ──────────────────────────────────────────────────
+  # ── Step 4: Backfill Set 16 ───────────────────────────────────────────────────
   backfill-16:
     name: "4 — Set 16 (backfill)"
     needs: backfill-15
     if: success()
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    outputs:
+      key_expired: ${{ steps.run.outputs.key_expired }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12", cache: "pip" }
       - run: pip install -r requirements.txt
       - name: Backfill Set 16
+        id: run
         env:
           RIOT_API_KEY:   ${{ secrets.RIOT_API_KEY }}
           DATABASE_URL:   ${{ secrets.DATABASE_URL }}
           TFT_ACTIVE_SET: ${{ vars.TFT_ACTIVE_SET || '17' }}
-        run: python3 scripts/refresh.py --region "$REGION" --tier "$TIER" --backfill-set 16
+        run: |
+          python3 scripts/refresh.py --region "$REGION" --tier "$TIER" --backfill-set 16
+          EXIT=$?
+          [ $EXIT -eq 2 ] && echo "key_expired=true" >> "$GITHUB_OUTPUT"
+          exit $EXIT
 
-  # ── Step 5: Auto-retry if anything failed or timed out ───────────────────────
-  # Runs last, regardless of whether earlier jobs succeeded or failed.
-  # If any step didn't finish, fires a repository_dispatch to restart the
-  # whole workflow — each job resumes from where it left off (cursor / skip).
-  # Requires ORCHESTRATOR_PAT: a classic GitHub token with the "repo" scope.
-  # Create it once at: github.com/settings/tokens → Tokens (classic) → check "repo"
-  retry:
-    name: "5 — Retry if timed out"
+  # ── Step 5: Handle result — notify on key expiry, retry on timeout ────────────
+  finish:
+    name: "5 — Notify / Retry"
     needs: [refresh-current, backfill-14, backfill-15, backfill-16]
-    # Only run if at least one job FAILED (timeout = failure in GitHub Actions).
-    # Skips entirely on manual cancellation (result = "cancelled") so we don't
-    # accidentally re-trigger a run the user deliberately stopped.
-    if: |
-      always() && (
-        needs.refresh-current.result == 'failure' ||
-        needs.backfill-14.result     == 'failure' ||
-        needs.backfill-15.result     == 'failure' ||
-        needs.backfill-16.result     == 'failure'
-      )
+    if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Show what failed
+      - name: Summarise results
         run: |
           echo "Set17  : ${{ needs.refresh-current.result }}"
           echo "Set14  : ${{ needs.backfill-14.result }}"
           echo "Set15  : ${{ needs.backfill-15.result }}"
           echo "Set16  : ${{ needs.backfill-16.result }}"
-          echo "⏳ At least one job timed out — triggering next run to resume…"
 
-      - name: Trigger next run
+      # Key-expired path: stop retrying and send a push notification.
+      - name: Notify — API key expired
+        if: |
+          needs.refresh-current.outputs.key_expired == 'true' ||
+          needs.backfill-14.outputs.key_expired     == 'true' ||
+          needs.backfill-15.outputs.key_expired     == 'true' ||
+          needs.backfill-16.outputs.key_expired     == 'true'
+        env:
+          NTFY_TOPIC: ${{ vars.NTFY_TOPIC || 'tft-cron-alert' }}
+        run: |
+          echo "🔑 API key expired — sending notification and stopping."
+          curl -s -X POST "https://ntfy.sh/${NTFY_TOPIC}" \
+            -H "Title: TFT Cron — API Key Expired" \
+            -H "Priority: high" \
+            -H "Tags: key,warning" \
+            -d "Your Riot API key has expired. Update RIOT_API_KEY in the tft-cron GitHub Secrets and re-run the workflow."
+          echo "Notification sent to ntfy.sh/${NTFY_TOPIC}"
+
+      # Timeout path: no key expiry → auto-retry to resume where we stopped.
+      - name: Retry if timed out (not key expiry)
+        if: |
+          needs.refresh-current.outputs.key_expired != 'true' &&
+          needs.backfill-14.outputs.key_expired     != 'true' &&
+          needs.backfill-15.outputs.key_expired     != 'true' &&
+          needs.backfill-16.outputs.key_expired     != 'true' &&
+          (
+            needs.refresh-current.result == 'failure' ||
+            needs.backfill-14.result     == 'failure' ||
+            needs.backfill-15.result     == 'failure' ||
+            needs.backfill-16.result     == 'failure'
+          )
         env:
           ORCHESTRATOR_PAT: ${{ secrets.ORCHESTRATOR_PAT }}
         run: |
