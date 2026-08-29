@@ -11,10 +11,20 @@ on:
         description: "Tier: challenger / grandmaster / master / all"
         required: false
         default: "all"
+      target_boards:
+        description: "Board target for this run (blank = default)"
+        required: false
+        default: ""
+      seed_prev_limit:
+        description: "How many previous-set high-elo players to re-resolve (blank = default)"
+        required: false
+        default: ""
 
   schedule:
-    # Every 6 hours — keeps the Set 18 snapshot fresh as the ladder fills in.
+    # Light refresh every 6 hours — keeps the snapshot fresh (default target).
     - cron: "0 */6 * * *"
+    # Deep weekly crawl (Sunday 08:00 UTC) — large high-elo sample.
+    - cron: "0 8 * * 0"
 
   repository_dispatch:
     types: [continue-refresh]
@@ -26,12 +36,21 @@ concurrency:
 env:
   REGION: ${{ github.event.inputs.region || github.event.client_payload.region || 'na1' }}
   TIER:   ${{ github.event.inputs.tier   || github.event.client_payload.tier   || 'all' }}
+  # Deep weekly run pulls far more; manual input overrides everything.
+  TFT_TARGET_BOARDS: >-
+    ${{ github.event.inputs.target_boards
+      || (github.event.schedule == '0 8 * * 0' && '6000')
+      || '1500' }}
+  TFT_SEED_PREV_LIMIT: >-
+    ${{ github.event.inputs.seed_prev_limit
+      || (github.event.schedule == '0 8 * * 0' && '800')
+      || '200' }}
 
 jobs:
 
-  # ── Seed / refresh the current set (Set 18) via live-ladder BFS crawl ─────────
+  # ── Seed / refresh the current set (Set 18) via live-ladder + high-elo crawl ──
   seed-current:
-    name: "1 — Set 18 (current, BFS seed)"
+    name: "1 — Set 18 (current)"
     runs-on: ubuntu-latest
     timeout-minutes: 350
     outputs:
@@ -44,10 +63,13 @@ jobs:
       - name: Seed current set
         id: run
         env:
-          RIOT_API_KEY:   ${{ secrets.RIOT_API_KEY }}
-          DATABASE_URL:   ${{ secrets.DATABASE_URL }}
-          TFT_ACTIVE_SET: ${{ vars.TFT_ACTIVE_SET || '18' }}
+          RIOT_API_KEY:        ${{ secrets.RIOT_API_KEY }}
+          DATABASE_URL:        ${{ secrets.DATABASE_URL }}
+          TFT_ACTIVE_SET:      ${{ vars.TFT_ACTIVE_SET || '18' }}
+          TFT_TARGET_BOARDS:   ${{ env.TFT_TARGET_BOARDS }}
+          TFT_SEED_PREV_LIMIT: ${{ env.TFT_SEED_PREV_LIMIT }}
         run: |
+          echo "Target boards: $TFT_TARGET_BOARDS | high-elo seeds: $TFT_SEED_PREV_LIMIT"
           python3 scripts/refresh.py --region "$REGION" --tier "$TIER" --seed-current
           EXIT=$?
           [ $EXIT -eq 2 ] && echo "key_expired=true" >> "$GITHUB_OUTPUT"
