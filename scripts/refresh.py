@@ -81,7 +81,23 @@ MAX_RETRIES = 5
 BASE_DELAY = 1.0
 REQUEST_DELAY = 0.15
 FETCH_TIMEOUT = 30
-PATCH_WINDOW_DAYS = 7   # rolling window for current-set refresh; also used for historical backfills
+PATCH_WINDOW_DAYS = 7   # rolling window for current-set refresh
+
+# Historical backfills search the FULL set window rather than a trailing slice.
+# Measured hit rates for current high-elo PUUIDs against old sets:
+#   last 7 days of set  → 1-2% of players have any match
+#   full set window     → 17-67% of players have matches
+# Most of today's challengers weren't high-elo 1-2 years ago, so restricting to
+# the final week of a set throws away ~95% of the recoverable data. Instead we
+# scan the whole set and cap matches per player to bound API cost.
+BACKFILL_MAX_MATCHES_PER_PLAYER = 25
+
+# Backfills record every participant in each fetched match, not just the seed
+# player. Anyone appearing in a match provably played that set, so this finds
+# players regardless of their rank today — essential for old sets where few
+# current challengers were active. Cap bounds memory and DB growth.
+BACKFILL_MAX_HARVESTED_PLAYERS = 4000
+BACKFILL_TARGET_BOARDS = 1000   # stop fetching more matches once this many boards are accumulated
 PLACEHOLDER_ITEMS = {"TFT_Item_EmptyBag", "TFT_Item_Empty", ""}
 NON_PLAYABLE_UNIT_MARKERS = {
     "PVE_", "FakeUnit", "TimebreakerCore", "TFT17_Summon",
@@ -352,7 +368,8 @@ SET_TIME_WINDOWS: dict[int, tuple[int, int]] = {
     14: (1743552000, 1753833600),   # Set 14 Cyber City:       Apr 02 2025 – Jul 30 2025
     15: (1753833600, 1764979200),   # Set 15 K.O. Coliseum:    Jul 30 2025 – Dec 03 2025
     16: (1764979200, 1776211200),   # Set 16 Lore & Legends:   Dec 03 2025 – Apr 15 2026
-    17: (1776211200, 9999999999),   # Set 17 Space Gods:       Apr 15 2026 – present
+    17: (1776211200, 1787616000),   # Set 17 Space Gods:       Apr 15 2026 – Aug 25 2026
+    18: (1787616000, 9999999999),   # Set 18 Enchanted Wilds:  Aug 25 2026 – present
 }
 
 
@@ -364,6 +381,7 @@ def _fetch_match_ids(
     active_set: int,
     end_ts_s: Optional[int] = None,   # hard ceiling (used for backfill)
     ignore_patch_floor: bool = False,  # skip the 14-day rolling floor
+    max_ids: int = 500,               # cap total IDs pulled (backfill uses a small cap)
 ) -> list:
     if ignore_patch_floor:
         # Backfill: use the set time window directly, no rolling floor
@@ -377,8 +395,8 @@ def _fetch_match_ids(
 
     all_ids: list = []
     offset = 0
-    while len(all_ids) < 500:
-        n = min(200, 500 - len(all_ids))
+    while len(all_ids) < max_ids:
+        n = min(200, max_ids - len(all_ids))
         url = (f"https://{routing}.api.riotgames.com/tft/match/v1/matches/"
                f"by-puuid/{puuid}/ids?count={n}&queue=1100&start={offset}&startTime={floor_s}")
         if end_ts_s:
@@ -954,15 +972,28 @@ def _export_static_snapshot(platform: str, tier: str, active_set: int):
     )
 
     # ── 5. Available sets ──────────────────────────────────────────────────────
+    # Must include historical_insights, otherwise the UI can't know which
+    # backfilled sets exist and leaves their tabs disabled.
     sets_rows = _execute(
-        "SELECT DISTINCT set_number FROM challenger_players "
-        "WHERE platform=%s AND tier=%s ORDER BY set_number",
-        [platform, tier], fetch="all",
+        "SELECT DISTINCT set_number FROM challenger_players WHERE platform=%s AND tier=%s "
+        "UNION "
+        "SELECT DISTINCT set_number FROM historical_insights WHERE platform=%s AND tier=%s "
+        "ORDER BY set_number",
+        [platform, tier, platform, tier], fetch="all",
     ) or []
     available_sets = {
         "sets": [int(r.get("set_number", 0)) for r in sets_rows],
         "activeSet": active_set,
     }
+
+    # Also write it as a standalone tiny file. The main snapshot is ~1 MB, so
+    # gating tab rendering on it causes a visible 1-2 s delay where every
+    # historical tab looks disabled. This file is a few hundred bytes.
+    sets_dir = Path(__file__).resolve().parent.parent / "public" / "data"
+    sets_dir.mkdir(parents=True, exist_ok=True)
+    with open(sets_dir / f"sets_{platform}_{tier}.json", "w", encoding="utf-8") as f:
+        json.dump(available_sets, f, separators=(",", ":"))
+    print(f"[snapshot] Wrote sets_{platform}_{tier}.json → {available_sets['sets']}")
 
     # ── 6. Assemble and write ──────────────────────────────────────────────────
     snapshot = {
@@ -1162,6 +1193,53 @@ def _export_historical_snapshot(platform: str, tier: str, active_set: int, targe
     print(f"[snapshot] Wrote {out_path.name} ({size_kb} KB, {total} players)")
 
 
+def _promote_current(platform: str, tier: str, set_num: int):
+    """
+    Promote a set's per-set snapshot to be the *main* current-set snapshot.
+
+    Used for a freshly-launched set whose ranked ladder is still empty: we
+    harvest its comp data via the backfill path (into historical_insights) but
+    still want it to be the default homepage view. This copies the per-set
+    snapshot to snapshot_{platform}_{tier}.json (the file the frontend loads for
+    the active set), stamps availableSets with activeSet=set_num, and rewrites
+    the tiny sets_{platform}_{tier}.json so tabs mark it "Current".
+    """
+    out_dir = Path(__file__).resolve().parent.parent / "public" / "data"
+    per_set = out_dir / f"snapshot_{platform}_{tier}_{set_num}.json"
+    if not per_set.exists():
+        print(f"[promote] {per_set.name} missing — nothing to promote.")
+        return
+
+    with open(per_set, "r", encoding="utf-8") as f:
+        snap = json.load(f)
+
+    # Build the available-sets list (union of both tables) so the tab bar is complete.
+    sets_rows = _execute(
+        "SELECT DISTINCT set_number FROM challenger_players WHERE platform=%s AND tier=%s "
+        "UNION "
+        "SELECT DISTINCT set_number FROM historical_insights WHERE platform=%s AND tier=%s "
+        "ORDER BY set_number",
+        [platform, tier, platform, tier], fetch="all",
+    ) or []
+    available_sets = {
+        "sets": [int(r.get("set_number", 0)) for r in sets_rows],
+        "activeSet": set_num,
+    }
+
+    snap["setNum"] = set_num
+    snap["availableSets"] = available_sets
+    if isinstance(snap.get("ladder"), dict) and isinstance(snap["ladder"].get("meta"), dict):
+        snap["ladder"]["meta"]["activeSet"] = set_num
+
+    with open(out_dir / f"snapshot_{platform}_{tier}.json", "w", encoding="utf-8") as f:
+        json.dump(snap, f, separators=(",", ":"), default=str)
+    with open(out_dir / f"sets_{platform}_{tier}.json", "w", encoding="utf-8") as f:
+        json.dump(available_sets, f, separators=(",", ":"))
+
+    print(f"[promote] Set {set_num} is now the current snapshot "
+          f"(sets={available_sets['sets']}, active={set_num}).")
+
+
 # ── Retag historical data ──────────────────────────────────────────────────────
 def _retag_historical(platform: str, active_set: int):
     """Re-tag all set_number=0 (pre-tracking) rows as active_set, then recompute
@@ -1246,10 +1324,9 @@ def _backfill_set(platform: str, target_set: int, tier: str = "all"):
     now = int(time.time())
     effective_end = min(end_ts, now)  # don't query into the future
 
-    # Use the last PATCH_WINDOW_DAYS of the set — captures end-of-set meta
-    # (most refined comps) while keeping the backfill fast enough to finish in one run.
-    window_floor = effective_end - PATCH_WINDOW_DAYS * 86400
-    start_ts = max(start_ts, window_floor)
+    # Scan the full set window (start_ts stays as the set's start date) and cap
+    # matches per player instead — see BACKFILL_MAX_MATCHES_PER_PLAYER.
+    print(f"[backfill] Full set window, max {BACKFILL_MAX_MATCHES_PER_PLAYER} matches/player")
 
     print(f"\n[backfill] ── Set {target_set} | {platform} ──")
     print(f"[backfill] Time window: {time.strftime('%Y-%m-%d', time.gmtime(start_ts))} "
@@ -1279,13 +1356,14 @@ def _backfill_set(platform: str, target_set: int, tier: str = "all"):
         rows = all_puuid_rows
         print(f"[backfill] Pooled {len(rows)} unique PUUIDs (challenger + grandmaster)")
 
-        # Skip players already processed in a previous (possibly timed-out) run.
-        # This makes re-runs resume from where they left off rather than restarting.
-        done_rows = _execute(
-            "SELECT puuid FROM historical_insights WHERE platform=%s AND tier=%s AND set_number=%s",
-            [platform, run_tier, target_set], fetch="all",
-        ) or []
-        done_puuids = {r["puuid"] for r in done_rows}
+        # Resume support. We track *seeds* separately from harvested players:
+        # harvesting writes thousands of participant rows into historical_insights,
+        # so presence in that table no longer means a PUUID was used as a seed.
+        seed_key = f"backfill_seeds:{platform}:{target_set}"
+        seed_row = _execute(
+            "SELECT payload FROM meta_cache WHERE cache_key=%s", [seed_key], fetch="one",
+        )
+        done_puuids = set((seed_row or {}).get("payload") or [])
         remaining = [r for r in rows if r["puuid"] not in done_puuids]
 
         if not remaining:
@@ -1298,10 +1376,68 @@ def _backfill_set(platform: str, target_set: int, tier: str = "all"):
                 print(f"\n[backfill] Set {target_set}: {len(done_puuids)} already done, "
                       f"{len(remaining)} remaining…")
                 rows = remaining
-                found = 0
+
+                # Every match contains 8 participants, all of whom demonstrably
+                # played this set. Accumulating all of them instead of only the
+                # seed player multiplies data ~8x for zero extra API calls, and
+                # captures players who are no longer high-elo today (or never
+                # were) — which is the only way to get depth on old sets.
+                accs: dict[str, dict] = {}
+                names: dict[str, str] = {}
+                seen_matches: set[str] = set()
+
+                processed_seeds: set[str] = set(done_puuids)
+
+                def _flush(acc_map: dict[str, dict]) -> int:
+                    written = 0
+                    for pid, a in acc_map.items():
+                        if a["matchCount"] == 0:
+                            continue
+                        ins = _derive_insights(a, catalog)
+                        ins["_raw"] = True
+                        ins["patchStartTs"] = start_ts
+                        _execute(
+                            """INSERT INTO historical_insights
+                                (platform, tier, puuid, set_number, summoner_name, insights, computed_at)
+                               VALUES (%s, %s, %s, %s, %s, %s, %s)
+                               ON CONFLICT (platform, tier, puuid, set_number) DO UPDATE SET
+                                 insights = EXCLUDED.insights,
+                                 computed_at = EXCLUDED.computed_at""",
+                            [platform, run_tier, pid, target_set,
+                             names.get(pid), json.dumps(ins), int(time.time() * 1000)],
+                        )
+                        written += 1
+                    # Persist seed progress so a timeout resumes instead of restarting.
+                    _execute(
+                        "INSERT INTO meta_cache (cache_key, payload, computed_at) VALUES (%s,%s,%s) "
+                        "ON CONFLICT (cache_key) DO UPDATE SET payload=EXCLUDED.payload, "
+                        "computed_at=EXCLUDED.computed_at",
+                        [seed_key, json.dumps(sorted(processed_seeds)), int(time.time() * 1000)],
+                    )
+                    print(f"\n[backfill]   flushed {written} players "
+                          f"({len(processed_seeds)} seeds done)")
+                    return written
 
                 for i, row in enumerate(rows):
+                    # Flush at the TOP of the iteration. Putting it at the bottom
+                    # meant the `continue` for seeds with no matches skipped it —
+                    # and on old sets most seeds have no matches, so results
+                    # accumulated in memory and were lost on timeout.
+                    if i > 0 and i % 25 == 0:
+                        _flush(accs)
+
+                    # Stop early once we have enough boards — no point burning
+                    # more API calls after the target is reached.
+                    total_boards = sum(
+                        a.get("matchCount", 0) for a in accs.values()
+                    )
+                    if total_boards >= BACKFILL_TARGET_BOARDS:
+                        print(f"\n[backfill] Reached {total_boards} boards — stopping early.")
+                        break
+
                     puuid = row["puuid"]
+                    names.setdefault(puuid, row.get("summoner_name"))
+                    processed_seeds.add(puuid)
                     time.sleep(REQUEST_DELAY)
 
                     match_ids = _fetch_match_ids(
@@ -1310,63 +1446,194 @@ def _backfill_set(platform: str, target_set: int, tier: str = "all"):
                         active_set=target_set,
                         end_ts_s=effective_end,
                         ignore_patch_floor=True,  # backfill ignores the rolling patch window
+                        max_ids=BACKFILL_MAX_MATCHES_PER_PLAYER,
                     )
 
                     if not match_ids:
-                        print(f"\r[backfill]   {i+1}/{len(rows)} — {puuid[:12]}… no matches", end="", flush=True)
+                        print(f"\r[backfill]   {i+1}/{len(rows)} — {len(accs)} players harvested",
+                              end="", flush=True)
                         continue
 
-                    acc = _empty_acc()
                     for mid in match_ids:
+                        if mid in seen_matches:
+                            continue          # another seed already pulled this game
+                        seen_matches.add(mid)
                         time.sleep(REQUEST_DELAY)
                         resp = _fetch(f"https://{routing}.api.riotgames.com/tft/match/v1/matches/{mid}", api_key)
                         if not resp or not resp.ok:
                             continue
                         match = resp.json()
-                        match_set = match.get("info", {}).get("tft_set_number")
+                        info = match.get("info", {})
+                        match_set = info.get("tft_set_number")
                         if match_set is not None and match_set != target_set:
                             continue
-                        participant = next(
-                            (p for p in match.get("info", {}).get("participants", []) if p.get("puuid") == puuid),
-                            None,
-                        )
-                        if not participant:
-                            continue
-                        match_ts_s = match.get("info", {}).get("game_datetime", 0) // 1000
-                        _accumulate(acc, participant, catalog, match_ts_s)
+                        match_ts_s = info.get("game_datetime", 0) // 1000
+                        for p in info.get("participants", []):
+                            pid = p.get("puuid")
+                            if not pid:
+                                continue
+                            if pid not in accs and len(accs) >= BACKFILL_MAX_HARVESTED_PLAYERS:
+                                continue      # cap reached; keep updating known players only
+                            _accumulate(accs.setdefault(pid, _empty_acc()), p, catalog, match_ts_s)
 
-                    if acc["matchCount"] == 0:
-                        continue
+                    print(f"\r[backfill]   {i+1}/{len(rows)} — {len(accs)} players harvested "
+                          f"from {len(seen_matches)} matches", end="", flush=True)
 
-                    found += 1
-                    insights = _derive_insights(acc, catalog)
-                    insights["_raw"] = True
-                    insights["patchStartTs"] = start_ts
-
-                    # Write to historical_insights (separate table keyed by set_number).
-                    _execute(
-                        """INSERT INTO historical_insights
-                            (platform, tier, puuid, set_number, summoner_name, insights, computed_at)
-                           VALUES (%s, %s, %s, %s, %s, %s, %s)
-                           ON CONFLICT (platform, tier, puuid, set_number) DO UPDATE SET
-                             insights = EXCLUDED.insights,
-                             computed_at = EXCLUDED.computed_at""",
-                        [platform, run_tier, puuid, target_set,
-                         row.get("summoner_name"), json.dumps(insights), int(time.time() * 1000)],
-                    )
-                    print(f"\r[backfill]   {i+1}/{len(rows)} — {found} with Set {target_set} data", end="", flush=True)
-
+                found = _flush(accs)
                 print()
-                print(f"[backfill] {found}/{len(rows)} players had Set {target_set} match data.")
+                print(f"[backfill] Harvested {found} players from {len(seen_matches)} "
+                      f"Set {target_set} matches (seeded by {len(rows)} known players).")
 
                 if found > 0:
                     print(f"[backfill] Computing archetypes for Set {target_set}…")
                     active_set_num = int(os.environ.get("TFT_ACTIVE_SET", "17"))
                     _cache_archetypes(platform, run_tier, active_set=active_set_num, target_set=target_set)
                     _export_historical_snapshot(platform, run_tier, active_set_num, target_set)
+                    # A freshly-launched set has no ranked ladder yet, so it's
+                    # harvested via this backfill path. Promote it to be the
+                    # default homepage snapshot when it's the active set.
+                    if target_set == active_set_num:
+                        _promote_current(platform, run_tier, target_set)
 
     print(f"\n[backfill] Done! Set {target_set} data is now in the DB.")
     print("[backfill] The UI set-selector will show it automatically on next page load.")
+
+
+# ── Seed a freshly-launched set via BFS from the live ladder ───────────────────
+def _seed_current_set(platform: str, active_set: int, tier: str = "all"):
+    """
+    Populate comp data for a just-launched set whose ranked ladder is still
+    empty/tiny and whose stored historical PUUIDs are inactive.
+
+    Strategy: start from whatever live ranked players exist (challenger →
+    grandmaster → master), then breadth-first expand through the participants of
+    their Set-N matches. Everyone in a Set-N match is provably an active player
+    this set, so the crawl snowballs from a handful of seeds into a broad sample.
+
+    Results are written to historical_insights (set_number = active_set) and then
+    promoted to be the default homepage snapshot via _promote_current(), because
+    the normal current-set pipeline (_run_tier → challenger_players) has no ladder
+    to read yet.
+    """
+    from collections import deque
+
+    api_key = os.environ.get("RIOT_API_KEY", "").strip()
+    if not api_key:
+        print("ERROR: RIOT_API_KEY not set"); raise SystemExit(1)
+
+    routing = PLATFORM_ROUTING.get(platform)
+    if not routing:
+        print(f"ERROR: Unknown region '{platform}'"); raise SystemExit(1)
+
+    start_ts, end_ts = SET_TIME_WINDOWS.get(active_set, (0, 9999999999))
+    effective_end = min(end_ts, int(time.time()))
+    catalog = _fetch_catalog(active_set)
+
+    # ── Seed from the live ranked ladder(s) ───────────────────────────────────
+    tiers = ["challenger", "grandmaster", "master"] if tier == "all" else [tier]
+    seeds: list[str] = []
+    names: dict[str, str] = {}
+    for t in tiers:
+        try:
+            entries = _fetch_ladder(platform, t, api_key)
+        except Exception as e:
+            print(f"[seed] {t} ladder fetch failed: {e}")
+            entries = []
+        for e in entries:
+            pid = e.get("puuid")
+            if pid:
+                seeds.append(pid)
+                if e.get("summonerName"):
+                    names[pid] = e["summonerName"]
+        print(f"[seed] {t}: {len(entries)} ranked players")
+
+    if not seeds:
+        print("[seed] No live ranked players found yet — the set may be too fresh. "
+              "Nothing to seed.")
+        return
+
+    print(f"\n[seed] Set {active_set}: BFS crawl from {len(seeds)} seed players "
+          f"(target {BACKFILL_TARGET_BOARDS} boards)…")
+
+    queue: deque[str] = deque(seeds)
+    queued: set[str] = set(seeds)
+    accs: dict[str, dict] = {}
+    seen_matches: set[str] = set()
+    processed = 0
+    DISCOVER_CAP = BACKFILL_MAX_HARVESTED_PLAYERS
+
+    def _boards() -> int:
+        return sum(a["matchCount"] for a in accs.values())
+
+    while queue and _boards() < BACKFILL_TARGET_BOARDS:
+        pid = queue.popleft()
+        processed += 1
+        time.sleep(REQUEST_DELAY)
+        match_ids = _fetch_match_ids(
+            routing, pid, api_key,
+            since_ts_s=start_ts, active_set=active_set, end_ts_s=effective_end,
+            ignore_patch_floor=True, max_ids=BACKFILL_MAX_MATCHES_PER_PLAYER,
+        )
+        for mid in match_ids:
+            if mid in seen_matches:
+                continue
+            seen_matches.add(mid)
+            time.sleep(REQUEST_DELAY)
+            resp = _fetch(f"https://{routing}.api.riotgames.com/tft/match/v1/matches/{mid}", api_key)
+            if not resp or not resp.ok:
+                continue
+            info = resp.json().get("info", {})
+            if info.get("tft_set_number") not in (None, active_set):
+                continue
+            match_ts_s = info.get("game_datetime", 0) // 1000
+            for p in info.get("participants", []):
+                ppid = p.get("puuid")
+                if not ppid:
+                    continue
+                # Discover: enqueue newly-seen active players for further crawling.
+                if ppid not in queued and len(queued) < DISCOVER_CAP:
+                    queue.append(ppid); queued.add(ppid)
+                # Capture a display name from the match payload if we lack one.
+                if ppid not in names and p.get("riotIdGameName"):
+                    tag = p.get("riotIdTagline", "")
+                    names[ppid] = f"{p['riotIdGameName']}#{tag}" if tag else p["riotIdGameName"]
+                if ppid not in accs and len(accs) >= DISCOVER_CAP:
+                    continue
+                _accumulate(accs.setdefault(ppid, _empty_acc()), p, catalog, match_ts_s)
+        print(f"\r[seed]   processed {processed} players · discovered {len(queued)} · "
+              f"{len(seen_matches)} matches · {_boards()} boards", end="", flush=True)
+    print()
+
+    # ── Write harvested players to historical_insights (set = active_set) ──────
+    written = 0
+    for ppid, a in accs.items():
+        if a["matchCount"] == 0:
+            continue
+        ins = _derive_insights(a, catalog)
+        ins["_raw"] = True
+        ins["patchStartTs"] = start_ts
+        _execute(
+            """INSERT INTO historical_insights
+                (platform, tier, puuid, set_number, summoner_name, insights, computed_at)
+               VALUES (%s, %s, %s, %s, %s, %s, %s)
+               ON CONFLICT (platform, tier, puuid, set_number) DO UPDATE SET
+                 insights = EXCLUDED.insights, computed_at = EXCLUDED.computed_at""",
+            [platform, "challenger", ppid, active_set,
+             names.get(ppid), json.dumps(ins), int(time.time() * 1000)],
+        )
+        written += 1
+
+    print(f"[seed] Wrote {written} players ({_boards()} boards) from {len(seen_matches)} "
+          f"Set {active_set} matches.")
+
+    if written > 0:
+        # Force the historical read path (active_set=0) so archetypes are computed
+        # from historical_insights, where the fresh-set data actually lives.
+        _cache_archetypes(platform, "challenger", active_set=0, target_set=active_set)
+        _export_historical_snapshot(platform, "challenger", active_set, active_set)
+        _promote_current(platform, "challenger", active_set)
+
+    print(f"\n[seed] Done! Set {active_set} is now the current snapshot.")
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -1382,6 +1649,9 @@ def main():
     parser.add_argument("--backfill-set", type=int, metavar="SET_NUM",
                         help="Retroactively fetch match data for a historical TFT set using "
                              "all PUUIDs already in the DB. Example: --backfill-set 16")
+    parser.add_argument("--seed-current", action="store_true",
+                        help="Seed a freshly-launched active set by BFS-crawling from the live "
+                             "ladder (use when the ranked ladder is still empty/tiny).")
     args = parser.parse_args()
 
     platform = args.region.lower()
@@ -1397,6 +1667,11 @@ def main():
 
     if args.backfill_set:
         _backfill_set(platform, args.backfill_set, tier)
+        return
+
+    if args.seed_current:
+        active_set = int(os.environ.get("TFT_ACTIVE_SET", "18"))
+        _seed_current_set(platform, active_set, tier)
         return
 
     # "all" expands to all three top tiers
