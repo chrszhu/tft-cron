@@ -106,7 +106,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Summarise
-        run: echo "Set18 : ${{ needs.seed-current.result }}"
+        run: echo "Set18 result ${{ needs.seed-current.result }}"
 
       - name: Notify — API key expired
         if: needs.seed-current.outputs.key_expired == 'true'
