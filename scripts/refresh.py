@@ -98,6 +98,9 @@ BACKFILL_MAX_MATCHES_PER_PLAYER = 25
 # current challengers were active. Cap bounds memory and DB growth.
 BACKFILL_MAX_HARVESTED_PLAYERS = 4000
 BACKFILL_TARGET_BOARDS = 1000   # stop fetching more matches once this many boards are accumulated
+# When seeding a freshly-launched set, re-resolve up to this many previous-set
+# high-elo players (by Riot ID) to use as a confirmed high-elo crawl baseline.
+SEED_PREV_SET_LIMIT = 200
 PLACEHOLDER_ITEMS = {"TFT_Item_EmptyBag", "TFT_Item_Empty", ""}
 NON_PLAYABLE_UNIT_MARKERS = {
     "PVE_", "FakeUnit", "TimebreakerCore", "TFT17_Summon",
@@ -356,6 +359,28 @@ def _fetch_ladder(platform: str, tier: str, api_key: str) -> list:
     for i, e in enumerate(entries):
         e["ladderPosition"] = i + 1
     return entries
+
+
+def _resolve_riot_id(routing: str, riot_id: str, api_key: str) -> Optional[str]:
+    """Resolve a 'gameName#tagLine' Riot ID to a *current* PUUID.
+
+    Stored PUUIDs go stale (Riot periodically rotates them), so match lookups on
+    old PUUIDs silently return an empty list. Re-resolving from the Riot ID gives
+    a fresh, valid PUUID. Returns None if the ID can't be resolved.
+    """
+    import urllib.parse
+    if not riot_id or "#" not in riot_id:
+        return None
+    game_name, tag = riot_id.rsplit("#", 1)
+    url = (f"https://{routing}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/"
+           f"{urllib.parse.quote(game_name)}/{urllib.parse.quote(tag)}")
+    resp = _fetch(url, api_key)
+    if resp and resp.ok:
+        try:
+            return resp.json().get("puuid")
+        except Exception:
+            return None
+    return None
 
 
 # Known TFT set time windows (UTC epoch seconds).
@@ -1547,6 +1572,38 @@ def _seed_current_set(platform: str, active_set: int, tier: str = "all"):
                     names[pid] = e["summonerName"]
         print(f"[seed] {t}: {len(entries)} ranked players")
 
+    # ── High-elo baseline: re-resolve previous-set challengers by Riot ID ──────
+    # The live ladder for a brand-new set is nearly empty, so we anchor the crawl
+    # on last set's top players — most of them are already grinding the new set.
+    # Their stored PUUIDs are stale (Riot rotates them), so resolve fresh ones
+    # from their Riot ID. These are PREPENDED so they're crawled first, keeping
+    # the harvested sample biased toward high elo.
+    prev_names = _execute(
+        "SELECT summoner_name FROM challenger_players "
+        "WHERE platform=%s AND tier IN ('challenger','grandmaster') "
+        "AND summoner_name LIKE '%%#%%' "
+        "ORDER BY league_points DESC LIMIT %s",
+        [platform, SEED_PREV_SET_LIMIT], fetch="all",
+    ) or []
+    if prev_names:
+        print(f"[seed] Re-resolving {len(prev_names)} previous-set high-elo players "
+              f"by Riot ID (for a high-elo baseline)…")
+        baseline: list[str] = []
+        seen_seed = set(seeds)
+        for idx, r in enumerate(prev_names):
+            nm = r.get("summoner_name")
+            time.sleep(REQUEST_DELAY)
+            fresh = _resolve_riot_id(routing, nm, api_key)
+            if fresh and fresh not in seen_seed:
+                baseline.append(fresh)
+                seen_seed.add(fresh)
+                names[fresh] = nm
+            if (idx + 1) % 25 == 0:
+                print(f"\r[seed]   resolved {idx+1}/{len(prev_names)} "
+                      f"({len(baseline)} valid)", end="", flush=True)
+        print(f"\n[seed] Got {len(baseline)} high-elo baseline seeds.")
+        seeds = baseline + seeds   # high-elo players crawled first
+
     if not seeds:
         print("[seed] No live ranked players found yet — the set may be too fresh. "
               "Nothing to seed.")
@@ -1565,7 +1622,32 @@ def _seed_current_set(platform: str, active_set: int, tier: str = "all"):
     def _boards() -> int:
         return sum(a["matchCount"] for a in accs.values())
 
+    def _flush() -> int:
+        """Persist accumulated players to historical_insights so a long crawl is
+        checkpointed and survives interruption."""
+        written = 0
+        for ppid, a in accs.items():
+            if a["matchCount"] == 0:
+                continue
+            ins = _derive_insights(a, catalog)
+            ins["_raw"] = True
+            ins["patchStartTs"] = start_ts
+            _execute(
+                """INSERT INTO historical_insights
+                    (platform, tier, puuid, set_number, summoner_name, insights, computed_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s)
+                   ON CONFLICT (platform, tier, puuid, set_number) DO UPDATE SET
+                     insights = EXCLUDED.insights, computed_at = EXCLUDED.computed_at""",
+                [platform, "challenger", ppid, active_set,
+                 names.get(ppid), json.dumps(ins), int(time.time() * 1000)],
+            )
+            written += 1
+        return written
+
     while queue and _boards() < BACKFILL_TARGET_BOARDS:
+        if processed > 0 and processed % 10 == 0:
+            n = _flush()
+            print(f"\n[seed]   checkpoint: flushed {n} players ({_boards()} boards)")
         pid = queue.popleft()
         processed += 1
         time.sleep(REQUEST_DELAY)
@@ -1605,24 +1687,7 @@ def _seed_current_set(platform: str, active_set: int, tier: str = "all"):
     print()
 
     # ── Write harvested players to historical_insights (set = active_set) ──────
-    written = 0
-    for ppid, a in accs.items():
-        if a["matchCount"] == 0:
-            continue
-        ins = _derive_insights(a, catalog)
-        ins["_raw"] = True
-        ins["patchStartTs"] = start_ts
-        _execute(
-            """INSERT INTO historical_insights
-                (platform, tier, puuid, set_number, summoner_name, insights, computed_at)
-               VALUES (%s, %s, %s, %s, %s, %s, %s)
-               ON CONFLICT (platform, tier, puuid, set_number) DO UPDATE SET
-                 insights = EXCLUDED.insights, computed_at = EXCLUDED.computed_at""",
-            [platform, "challenger", ppid, active_set,
-             names.get(ppid), json.dumps(ins), int(time.time() * 1000)],
-        )
-        written += 1
-
+    written = _flush()
     print(f"[seed] Wrote {written} players ({_boards()} boards) from {len(seen_matches)} "
           f"Set {active_set} matches.")
 
