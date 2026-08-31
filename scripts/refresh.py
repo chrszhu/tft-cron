@@ -718,9 +718,11 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2) 
                     continue
                 ud = unit_data.setdefault(name, {
                     "iconUrl": unit.get("iconUrl"), "cost": unit.get("cost"),
-                    "count": 0, "itemBoardCount": 0, "items": {},
+                    "count": 0, "itemBoardCount": 0, "items": {}, "threeStar": 0,
                 })
                 ud["count"] += 1
+                if (unit.get("star") or 0) >= 3:
+                    ud["threeStar"] += 1
                 unit_items = unit.get("items", [])
                 if len(unit_items) >= 2:
                     ud["itemBoardCount"] += 1
@@ -746,6 +748,7 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2) 
                 "name": name, "iconUrl": d["iconUrl"], "cost": d["cost"],
                 "pct": min(100, round(pct * 100)), "count": d["count"],
                 "itemHolderPct": round(d["itemBoardCount"] / d["count"] * 100) if d["count"] > 0 else 0,
+                "threeStarPct": round(d["threeStar"] / d["count"] * 100) if d["count"] > 0 else 0,
                 "topItems": top_items,
             }
             if pct >= 0.7:
@@ -1554,6 +1557,12 @@ def _seed_current_set(platform: str, active_set: int, tier: str = "all"):
     effective_end = min(end_ts, int(time.time()))
     catalog = _fetch_catalog(active_set)
 
+    # Board target and high-elo seed count are env-overridable so a light 6-hour
+    # refresh (defaults) and a heavier weekly deep-crawl can share this code.
+    target_boards = int(os.environ.get("TFT_TARGET_BOARDS", BACKFILL_TARGET_BOARDS))
+    prev_limit = int(os.environ.get("TFT_SEED_PREV_LIMIT", SEED_PREV_SET_LIMIT))
+    print(f"[seed] target {target_boards} boards, up to {prev_limit} high-elo baseline seeds")
+
     # ── Seed from the live ranked ladder(s) ───────────────────────────────────
     tiers = ["challenger", "grandmaster", "master"] if tier == "all" else [tier]
     seeds: list[str] = []
@@ -1583,7 +1592,7 @@ def _seed_current_set(platform: str, active_set: int, tier: str = "all"):
         "WHERE platform=%s AND tier IN ('challenger','grandmaster') "
         "AND summoner_name LIKE '%%#%%' "
         "ORDER BY league_points DESC LIMIT %s",
-        [platform, SEED_PREV_SET_LIMIT], fetch="all",
+        [platform, prev_limit], fetch="all",
     ) or []
     if prev_names:
         print(f"[seed] Re-resolving {len(prev_names)} previous-set high-elo players "
@@ -1610,7 +1619,7 @@ def _seed_current_set(platform: str, active_set: int, tier: str = "all"):
         return
 
     print(f"\n[seed] Set {active_set}: BFS crawl from {len(seeds)} seed players "
-          f"(target {BACKFILL_TARGET_BOARDS} boards)…")
+          f"(target {target_boards} boards)…")
 
     queue: deque[str] = deque(seeds)
     queued: set[str] = set(seeds)
@@ -1644,7 +1653,7 @@ def _seed_current_set(platform: str, active_set: int, tier: str = "all"):
             written += 1
         return written
 
-    while queue and _boards() < BACKFILL_TARGET_BOARDS:
+    while queue and _boards() < target_boards:
         if processed > 0 and processed % 10 == 0:
             n = _flush()
             print(f"\n[seed]   checkpoint: flushed {n} players ({_boards()} boards)")
