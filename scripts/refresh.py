@@ -226,6 +226,7 @@ def _fetch_catalog(active_set: int) -> dict:
         set_data = max(sets, key=lambda s: s.get("number", 0), default={})
 
     items: dict = {}
+    item_roles: dict = {}  # norm(displayName) → net offensive(+)/defensive(−) score
     for item in data.get("items", []):
         api = item.get("apiName") or ""
         name = item.get("name") or ""
@@ -236,6 +237,20 @@ def _fetch_catalog(active_set: int) -> dict:
             items[api] = entry
             if item.get("id") is not None:
                 items[str(item["id"])] = entry
+        comp = item.get("composition") or []
+        if name and comp:
+            score = 0
+            for c in comp:
+                n = _norm_key(c)
+                if any(o in n for o in OFFENSIVE_COMPONENTS):
+                    score += 1
+                if any(dd in n for dd in DEFENSIVE_COMPONENTS):
+                    score -= 1
+            key = _norm_key(name)
+            # Prefer a definitive (non-zero) classification when a display name
+            # is shared by multiple item variants (some with empty recipes).
+            if key not in item_roles or (item_roles[key] == 0 and score != 0):
+                item_roles[key] = score
 
     traits: dict = {}
     for trait in set_data.get("traits", []):
@@ -247,16 +262,20 @@ def _fetch_catalog(active_set: int) -> dict:
             traits[api.lower()] = {"name": name, "iconUrl": _normalize_icon(icon)}
 
     units: dict = {}
+    unit_ranges: dict = {}  # norm(displayName) → attack range (front vs back)
     for unit in set_data.get("champions", []):
         api = unit.get("apiName") or ""
         name = unit.get("name") or ""
         # CDragon uses "tileIcon" / "squareIcon" (not the *Path variants)
         icon = unit.get("tileIcon") or unit.get("squareIcon") or unit.get("tileIconPath") or ""
         cost = unit.get("cost", 0)
+        rng = (unit.get("stats") or {}).get("range")
         if api and name:
-            entry = {"name": name, "iconUrl": _normalize_icon(icon), "cost": cost}
+            entry = {"name": name, "iconUrl": _normalize_icon(icon), "cost": cost, "range": rng}
             units[api] = entry
             units[api.lower()] = entry
+            if isinstance(rng, (int, float)):
+                unit_ranges[_norm_key(name)] = rng
 
     augments: dict = {}
     for aug in data.get("augments", []) or []:
@@ -269,7 +288,10 @@ def _fetch_catalog(active_set: int) -> dict:
             augments[api.lower()] = {"name": name, "iconUrl": _normalize_icon(icon), "tier": tier}
 
     print(f"[catalog] Loaded {len(traits)} traits, {len(units)//2} units, {len(items)} items")
-    return {"items": items, "traits": traits, "units": units, "augments": augments}
+    return {
+        "items": items, "traits": traits, "units": units, "augments": augments,
+        "itemRoles": item_roles, "unitRanges": unit_ranges,
+    }
 
 
 def _normalize_icon(path: str) -> Optional[str]:
@@ -305,6 +327,118 @@ def _map_icon(catalog: dict, api_name: str) -> Optional[str]:
 
 def _is_non_playable(character_id: str) -> bool:
     return any(m in character_id for m in NON_PLAYABLE_UNIT_MARKERS)
+
+
+# ── Suggested-board inference ──────────────────────────────────────────────────
+# Component base names used to guess whether an item holder is a damage carry
+# (offensive components) or a tank (defensive components). Kept in sync with the
+# frontend so the precomputed layout matches the item-recipe classifier.
+OFFENSIVE_COMPONENTS = ("bfsword", "recurvebow", "needlesslylargerod")
+DEFENSIVE_COMPONENTS = ("chainvest", "negatroncloak", "giantsbelt")
+BOARD_HOLDER_THRESHOLD = 50  # itemHolderPct to treat a unit as an item holder
+
+
+def _norm_key(s: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", (s or "").lower())
+
+
+# Non-playable / summoned units that shouldn't appear on the suggested board
+# (kept in sync with HIDDEN_UNIT_NAMES on the frontend).
+HIDDEN_BOARD_UNITS = {
+    "bia & bayin", "summon", "cosmic elder dragon", "cosmic gromp", "cosmic bruiser",
+    "cosmic squid", "cosmic flutterbye", "cosmic scrapper", "mini black hole",
+    "timebreakercore", "training dummy",
+}
+
+
+def _is_hidden_board_unit(name: str) -> bool:
+    lower = (name or "").lower()
+    return (
+        lower in HIDDEN_BOARD_UNITS
+        or lower.startswith("pve_")
+        or (lower.startswith("cosmic ") and "dragon" in lower)
+    )
+
+
+def _classify_board_role(unit: dict, item_roles: dict) -> str:
+    """Return 'carry', 'tank', or 'filler' for a unit from its item recipes."""
+    if (unit.get("itemHolderPct") or 0) < BOARD_HOLDER_THRESHOLD:
+        return "filler"
+    score = 0
+    for it in (unit.get("topItems") or [])[:3]:
+        score += item_roles.get(_norm_key(it.get("name", "")), 0) * (it.get("count") or 1)
+    return "carry" if score > 0 else "tank"
+
+
+def _compute_board_layout(units: list, catalog: dict) -> list:
+    """
+    Infer a 4×7 board layout for a comp. The Riot API does not expose unit
+    coordinates, so placement is heuristic:
+      • front (melee, range ≤ 1) vs back (ranged) from CDragon stats.range
+      • front-row tanks cluster center (branching out); a damage carry stuck in
+        the front row goes to the top-left corner
+      • back-row carries fill from the back-left (highest cost / main holder) right
+    Returns a list of 4 rows × 7 cells, each cell a unit name or None.
+    """
+    item_roles = catalog.get("itemRoles", {})
+    unit_ranges = catalog.get("unitRanges", {})
+
+    def cost_of(u: dict) -> float:
+        c = u.get("cost")
+        return c if isinstance(c, (int, float)) and c > 0 else 99
+
+    front, back = [], []
+    for u in units:
+        rng = unit_ranges.get(_norm_key(u.get("name", "")))
+        (back if isinstance(rng, (int, float)) and rng > 1 else front).append(u)
+
+    grid = [[None] * 7 for _ in range(4)]
+
+    # ── Front row (row 0) ──────────────────────────────────────────────────────
+    fc = sorted([u for u in front if _classify_board_role(u, item_roles) == "carry"], key=lambda u: -cost_of(u))
+    ft = sorted([u for u in front if _classify_board_role(u, item_roles) == "tank"], key=lambda u: -cost_of(u))
+    ff = sorted([u for u in front if _classify_board_role(u, item_roles) == "filler"], key=lambda u: -cost_of(u))
+    row0 = grid[0]
+    li = 0
+    for u in fc:  # damage carry → top-left
+        if li < 7:
+            row0[li] = u.get("name")
+            li += 1
+    center_order = [3, 2, 4, 1, 5, 0, 6]
+
+    def place_center(lst):
+        for u in lst:
+            p = next((s for s in center_order if row0[s] is None), None)
+            if p is not None:
+                row0[p] = u.get("name")
+            else:
+                o = next((i for i, v in enumerate(grid[1]) if v is None), None)
+                if o is not None:
+                    grid[1][o] = u.get("name")
+
+    place_center(ft)   # main tank dead center, branching out
+    place_center(ff)   # secondary melee fill around the center
+
+    # ── Back row (row 3) ───────────────────────────────────────────────────────
+    bh = sorted([u for u in back if _classify_board_role(u, item_roles) != "filler"], key=lambda u: -cost_of(u))
+    bf = sorted([u for u in back if _classify_board_role(u, item_roles) == "filler"], key=lambda u: -cost_of(u))
+    row3 = grid[3]
+    bi = 0
+
+    def place_back(lst):
+        nonlocal bi
+        for u in lst:
+            if bi < 7:
+                row3[bi] = u.get("name")  # back-left → right, main carry first
+                bi += 1
+            else:
+                o = next((i for i, v in enumerate(grid[2]) if v is None), None)
+                if o is not None:
+                    grid[2][o] = u.get("name")
+
+    place_back(bh)
+    place_back(bf)
+    return grid
 
 
 # ── Riot API ──────────────────────────────────────────────────────────────────
@@ -672,7 +806,7 @@ def _jaccard(a: frozenset, b: frozenset) -> float:
     return inter / union if union else 0.0
 
 
-def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2) -> list:
+def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, catalog: dict | None = None) -> list:
     unit_sets = [frozenset(u["name"] for u in b.get("units", []) if u.get("name")) for b in boards]
     cluster_counts: list = []
     cluster_sizes: list = []
@@ -759,13 +893,25 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2) 
             [{"name": k, "count": v} for k, v in trait_counts.items() if v / total >= 0.3],
             key=lambda x: -x["count"],
         )
-        results.append({"boardCount": total, "coreUnits": core_units, "flexUnits": flex_units, "traits": traits})
+        arch = {"boardCount": total, "coreUnits": core_units, "flexUnits": flex_units, "traits": traits}
+        # Precompute the suggested-board layout so the frontend renders static
+        # positions (no client-side inference / catalog dependency at render).
+        if catalog:
+            board_units, seen = [], set()
+            for u in core_units + flex_units:
+                if _is_hidden_board_unit(u["name"]) or u["name"] in seen:
+                    continue
+                seen.add(u["name"])
+                board_units.append(u)
+            arch["board"] = _compute_board_layout(board_units[:10], catalog)
+        results.append(arch)
 
     results.sort(key=lambda x: -x["boardCount"])
     return results[:30]
 
 
-def _cache_archetypes(platform: str, tier: str, active_set: int, target_set: int | None = None):
+def _cache_archetypes(platform: str, tier: str, active_set: int, target_set: int | None = None,
+                      catalog: dict | None = None):
     """
     Compute and cache comp archetypes for a given set.
 
@@ -805,7 +951,9 @@ def _cache_archetypes(platform: str, tier: str, active_set: int, target_set: int
         print(f"[archetypes] No boards found for set {active_set}")
         return
 
-    archetypes = _cluster_boards(all_boards)
+    if catalog is None:
+        catalog = _fetch_catalog(set_num)
+    archetypes = _cluster_boards(all_boards, catalog=catalog)
     result = {
         "archetypes": archetypes,
         "totalBoards": len(all_boards),
@@ -1515,7 +1663,7 @@ def _backfill_set(platform: str, target_set: int, tier: str = "all"):
                 if found > 0:
                     print(f"[backfill] Computing archetypes for Set {target_set}…")
                     active_set_num = int(os.environ.get("TFT_ACTIVE_SET", "17"))
-                    _cache_archetypes(platform, run_tier, active_set=active_set_num, target_set=target_set)
+                    _cache_archetypes(platform, run_tier, active_set=active_set_num, target_set=target_set, catalog=catalog)
                     _export_historical_snapshot(platform, run_tier, active_set_num, target_set)
                     # A freshly-launched set has no ranked ladder yet, so it's
                     # harvested via this backfill path. Promote it to be the
@@ -1703,7 +1851,7 @@ def _seed_current_set(platform: str, active_set: int, tier: str = "all"):
     if written > 0:
         # Force the historical read path (active_set=0) so archetypes are computed
         # from historical_insights, where the fresh-set data actually lives.
-        _cache_archetypes(platform, "challenger", active_set=0, target_set=active_set)
+        _cache_archetypes(platform, "challenger", active_set=0, target_set=active_set, catalog=catalog)
         _export_historical_snapshot(platform, "challenger", active_set, active_set)
         _promote_current(platform, "challenger", active_set)
 
@@ -1946,7 +2094,7 @@ def _run_tier(platform: str, tier: str, ladder_only: bool):
 
     # ── Step 4: Cache archetypes ──────────────────────────────────────────────
     print("\n[refresh] Step 3/3: Computing comp archetypes...")
-    _cache_archetypes(platform, tier, active_set)
+    _cache_archetypes(platform, tier, active_set, catalog=catalog)
 
     # ── Step 5: Export static snapshot ───────────────────────────────────────
     # Writes public/data/snapshot_{platform}_{tier}.json so Vercel serves it
