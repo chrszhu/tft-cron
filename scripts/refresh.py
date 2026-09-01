@@ -441,55 +441,39 @@ def _compute_board_layout(units: list, catalog: dict) -> list:
     return grid
 
 
-# Canonical stage-by-stage leveling / econ paths per comp category. Each step is
-# "<when> <action>" following the standard TFT leveling formulas used across
-# major guides (level timings, when to roll, when to stop).
-LEVELING_STEPS = {
-    "1-Cost Reroll": [
-        "2-1 Level 4",
-        "3-1 Level 5",
-        "Stage 3: slow-roll at L5 (keep ~50g) for 1-cost 3★s",
-        "4-1 Level 6",
-        "5-1 Level 7",
-        "Stop rolling once core 1-costs are 3-starred",
-    ],
-    "2-Cost Reroll": [
-        "2-1 Level 4",
-        "3-2 Level 6",
-        "Stage 3–4: slow-roll at L6 (keep ~50g) for 2-cost 3★s",
-        "4-2 Level 7",
-        "Stop rolling once 2-cost carries are 3-starred, then push levels",
-    ],
-    "3-Cost Reroll": [
-        "2-1 Level 4",
-        "3-2 Level 6",
-        "4-1 Level 7: roll down (to ~30–50g) for 3-cost 3★s",
-        "Level 8 once stable",
-        "Stop rolling after 3-starring your key 3-costs",
-    ],
-    "Standard (Fast 8)": [
-        "2-1 Level 4, econ to 50g",
-        "3-2 Level 6",
-        "4-1 Level 7",
-        "4-2 Level 8: roll down for your 4-cost carries",
-        "Stop rolling at 2★ carries + full board",
-        "Level 9 late if healthy for 5-costs",
-    ],
-    "Fast 9 / Legendaries": [
-        "2-1 Level 4, hard econ (hold 50g)",
-        "3-2 Level 6",
-        "4-1 Level 7",
-        "4-2/5-1 Level 8",
-        "Stage 5 push Fast Level 9",
-        "Roll at L9 for 5-cost legendaries · only roll early to stabilize if low HP",
-    ],
+# Standard TFT leveling curves + roll guidance per category, following the
+# patterns used by high-level guides (e.g. bunnymuffins.lol): a level-by-round
+# curve ("Lx @stage") plus SEPARATE roll/stop guidance (a condition, not a final
+# chronological step). Curves reflect a win/mixed-streak baseline; on a hard loss
+# streak each level typically comes ~1 round later.
+LEVELING_GUIDE = {
+    "1-Cost Reroll": {
+        "curve": ["L4 @2-1", "L5 @2-5", "L6 @4-1", "L7 @5-1"],
+        "roll": "Stay L4–5 and slow-roll through Stage 3 for 1-cost 3★s (all-in 4-1 if not hit). Stop rolling and start leveling once your core 1-costs are 3-starred.",
+    },
+    "2-Cost Reroll": {
+        "curve": ["L4 @2-1", "L5 @2-5", "L6 @3-2", "L7 @4-5", "L8 @5-2"],
+        "roll": "Roll to stabilize at L6 on 3-2, then slow-roll at L6 for 2-cost 3★s. Stop once your carry is 3-starred, then resume leveling. Go 9 late for a 5-cost.",
+    },
+    "3-Cost Reroll": {
+        "curve": ["L4 @2-1", "L5 @2-5", "L6 @3-2", "L7 @4-1", "L8 @5+", "L9 @6+"],
+        "roll": "Level 7 on 4-1 and slow-roll (down to ~30–50g) for 3-cost 3★s. Stop once your key 3-costs are 3-starred, then push levels.",
+    },
+    "Standard (Fast 8)": {
+        "curve": ["L4 @2-1", "L5 @2-5", "L6 @3-1", "L7 @3-5", "L8 @4-2", "L9 @5-2"],
+        "roll": "Hold econ (50g) until 8. Roll down on 8 (4-2) for your 4-cost carries. Stop at 2★ carries + full board; level 9 late if healthy.",
+    },
+    "Fast 9 / Legendaries": {
+        "curve": ["L4 @2-1", "L5 @2-5", "L6 @3-1", "L7 @3-5", "L8 @4-2", "L9 @5-2"],
+        "roll": "Hard econ — sacrifice Stage 4 rather than rolling on 8. Push level 9 by 5-1/5-2, then roll for your board. Only roll on 8 to stabilize if dying.",
+    },
 }
 
 
 def _classify_comp_leveling(core_units: list, flex_units: list, catalog: dict) -> dict:
     """
     Categorize a comp into a leveling archetype (reroll vs carry vs fast 9) and
-    attach the stage-by-stage leveling path plus the main carry/tank item holders.
+    attach the level-by-round curve + roll guidance plus the main carry/tank.
 
     Carry/tank are chosen from units that actually hold items in the harvested
     games (itemHolderPct), classified by whether their items are built from
@@ -522,11 +506,12 @@ def _classify_comp_leveling(core_units: list, flex_units: list, catalog: dict) -
         cc = cost(carry) if carry else 0
         category = "Fast 9 / Legendaries" if cc >= 5 else "Standard (Fast 8)"
 
-    steps = LEVELING_STEPS.get(category, [])
+    guide = LEVELING_GUIDE.get(category, {"curve": [], "roll": ""})
     return {
         "category": category,
-        "levelingSteps": steps,
-        "levelingPath": " · ".join(steps),
+        "levelCurve": guide["curve"],
+        "rollGuidance": guide["roll"],
+        "levelingPath": " · ".join(guide["curve"]),  # kept for backward compat
         "carryName": (carry or {}).get("name"),
         "tankName": (tank or {}).get("name"),
     }
