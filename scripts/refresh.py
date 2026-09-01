@@ -441,6 +441,51 @@ def _compute_board_layout(units: list, catalog: dict) -> list:
     return grid
 
 
+# Canonical leveling / econ paths per comp category.
+LEVELING_PATHS = {
+    "1-Cost Reroll": "Stay Level 4–5 · slow-roll at Level 5 (Stage 3) to 3-star 1-costs · Level 6–7 late for board strength",
+    "2-Cost Reroll": "Level 6 by Stage 3-2 · slow-roll at Level 6 to 3-star 2-costs · Level 7–8 late",
+    "3-Cost Reroll": "Level 7 at Stage 4-1 · roll to 3-star 3-costs · Level 8 once stable",
+    "Standard (Fast 8)": "Econ to Level 8 by Stage 4-1/4-2 · roll for your 4-cost carries · Level 9 if healthy",
+    "Fast 9 / Legendaries": "Prioritize econ & levels · fast Level 8 then 9 · roll at Level 9 for 5-cost legendaries",
+}
+
+
+def _classify_comp_leveling(core_units: list, flex_units: list, catalog: dict) -> dict:
+    """
+    Categorize a comp into a leveling archetype (reroll vs carry vs fast 9) and
+    attach the canonical leveling path plus the main carry/tank item holders.
+    """
+    item_roles = catalog.get("itemRoles", {})
+    units = core_units + flex_units
+
+    def cost(u: dict) -> int:
+        c = u.get("cost")
+        return int(c) if isinstance(c, (int, float)) and c > 0 else 0
+
+    carries = [u for u in units if _classify_board_role(u, item_roles) == "carry"]
+    tanks = [u for u in units if _classify_board_role(u, item_roles) == "tank"]
+    carry = max(carries, key=lambda u: (cost(u), u.get("itemHolderPct") or 0)) if carries else None
+    tank = max(tanks, key=lambda u: (cost(u), u.get("itemHolderPct") or 0)) if tanks else None
+
+    # Reroll comps are defined by 3-starring a low-cost unit.
+    reroll = [u for u in units if (u.get("threeStarPct") or 0) >= 35 and 1 <= cost(u) <= 3]
+    if reroll:
+        rc = max(reroll, key=lambda u: (u.get("threeStarPct") or 0, cost(u)))
+        category = f"{cost(rc)}-Cost Reroll"
+        carry = rc  # the reroll unit is the carry you invest in
+    else:
+        cc = cost(carry) if carry else 0
+        category = "Fast 9 / Legendaries" if cc >= 5 else "Standard (Fast 8)"
+
+    return {
+        "category": category,
+        "levelingPath": LEVELING_PATHS.get(category, ""),
+        "carryName": (carry or {}).get("name"),
+        "tankName": (tank or {}).get("name"),
+    }
+
+
 # ── Riot API ──────────────────────────────────────────────────────────────────
 class ApiKeyExpiredError(SystemExit):
     """Raised (exit code 2) when Riot returns 401/403 — key is invalid or expired."""
@@ -897,13 +942,16 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
         # Precompute the suggested-board layout so the frontend renders static
         # positions (no client-side inference / catalog dependency at render).
         if catalog:
+            # Suggested board = core units only (the units that define the comp);
+            # flex units are situational and left off to keep the board clean.
             board_units, seen = [], set()
-            for u in core_units + flex_units:
+            for u in core_units:
                 if _is_hidden_board_unit(u["name"]) or u["name"] in seen:
                     continue
                 seen.add(u["name"])
                 board_units.append(u)
-            arch["board"] = _compute_board_layout(board_units[:10], catalog)
+            arch["board"] = _compute_board_layout(board_units[:12], catalog)
+            arch.update(_classify_comp_leveling(core_units, flex_units, catalog))
         results.append(arch)
 
     results.sort(key=lambda x: -x["boardCount"])
