@@ -441,20 +441,60 @@ def _compute_board_layout(units: list, catalog: dict) -> list:
     return grid
 
 
-# Canonical leveling / econ paths per comp category.
-LEVELING_PATHS = {
-    "1-Cost Reroll": "Stay Level 4–5 · slow-roll at Level 5 (Stage 3) to 3-star 1-costs · Level 6–7 late for board strength",
-    "2-Cost Reroll": "Level 6 by Stage 3-2 · slow-roll at Level 6 to 3-star 2-costs · Level 7–8 late",
-    "3-Cost Reroll": "Level 7 at Stage 4-1 · roll to 3-star 3-costs · Level 8 once stable",
-    "Standard (Fast 8)": "Econ to Level 8 by Stage 4-1/4-2 · roll for your 4-cost carries · Level 9 if healthy",
-    "Fast 9 / Legendaries": "Prioritize econ & levels · fast Level 8 then 9 · roll at Level 9 for 5-cost legendaries",
+# Canonical stage-by-stage leveling / econ paths per comp category. Each step is
+# "<when> <action>" following the standard TFT leveling formulas used across
+# major guides (level timings, when to roll, when to stop).
+LEVELING_STEPS = {
+    "1-Cost Reroll": [
+        "2-1 Level 4",
+        "3-1 Level 5",
+        "Stage 3: slow-roll at L5 (keep ~50g) for 1-cost 3★s",
+        "4-1 Level 6",
+        "5-1 Level 7",
+        "Stop rolling once core 1-costs are 3-starred",
+    ],
+    "2-Cost Reroll": [
+        "2-1 Level 4",
+        "3-2 Level 6",
+        "Stage 3–4: slow-roll at L6 (keep ~50g) for 2-cost 3★s",
+        "4-2 Level 7",
+        "Stop rolling once 2-cost carries are 3-starred, then push levels",
+    ],
+    "3-Cost Reroll": [
+        "2-1 Level 4",
+        "3-2 Level 6",
+        "4-1 Level 7: roll down (to ~30–50g) for 3-cost 3★s",
+        "Level 8 once stable",
+        "Stop rolling after 3-starring your key 3-costs",
+    ],
+    "Standard (Fast 8)": [
+        "2-1 Level 4, econ to 50g",
+        "3-2 Level 6",
+        "4-1 Level 7",
+        "4-2 Level 8: roll down for your 4-cost carries",
+        "Stop rolling at 2★ carries + full board",
+        "Level 9 late if healthy for 5-costs",
+    ],
+    "Fast 9 / Legendaries": [
+        "2-1 Level 4, hard econ (hold 50g)",
+        "3-2 Level 6",
+        "4-1 Level 7",
+        "4-2/5-1 Level 8",
+        "Stage 5 push Fast Level 9",
+        "Roll at L9 for 5-cost legendaries · only roll early to stabilize if low HP",
+    ],
 }
 
 
 def _classify_comp_leveling(core_units: list, flex_units: list, catalog: dict) -> dict:
     """
     Categorize a comp into a leveling archetype (reroll vs carry vs fast 9) and
-    attach the canonical leveling path plus the main carry/tank item holders.
+    attach the stage-by-stage leveling path plus the main carry/tank item holders.
+
+    Carry/tank are chosen from units that actually hold items in the harvested
+    games (itemHolderPct), classified by whether their items are built from
+    offensive components (carry) or defensive components (tank). "Main" = the
+    most consistently itemized holder of that type (tie-break by cost).
     """
     item_roles = catalog.get("itemRoles", {})
     units = core_units + flex_units
@@ -463,10 +503,14 @@ def _classify_comp_leveling(core_units: list, flex_units: list, catalog: dict) -
         c = u.get("cost")
         return int(c) if isinstance(c, (int, float)) and c > 0 else 0
 
+    # Rank by how consistently the unit is itemized, then by cost.
+    def holder_score(u: dict):
+        return (u.get("itemHolderPct") or 0, cost(u))
+
     carries = [u for u in units if _classify_board_role(u, item_roles) == "carry"]
     tanks = [u for u in units if _classify_board_role(u, item_roles) == "tank"]
-    carry = max(carries, key=lambda u: (cost(u), u.get("itemHolderPct") or 0)) if carries else None
-    tank = max(tanks, key=lambda u: (cost(u), u.get("itemHolderPct") or 0)) if tanks else None
+    carry = max(carries, key=holder_score) if carries else None
+    tank = max(tanks, key=holder_score) if tanks else None
 
     # Reroll comps are defined by 3-starring a low-cost unit.
     reroll = [u for u in units if (u.get("threeStarPct") or 0) >= 35 and 1 <= cost(u) <= 3]
@@ -478,9 +522,11 @@ def _classify_comp_leveling(core_units: list, flex_units: list, catalog: dict) -
         cc = cost(carry) if carry else 0
         category = "Fast 9 / Legendaries" if cc >= 5 else "Standard (Fast 8)"
 
+    steps = LEVELING_STEPS.get(category, [])
     return {
         "category": category,
-        "levelingPath": LEVELING_PATHS.get(category, ""),
+        "levelingSteps": steps,
+        "levelingPath": " · ".join(steps),
         "carryName": (carry or {}).get("name"),
         "tankName": (tank or {}).get("name"),
     }
