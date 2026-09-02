@@ -252,6 +252,28 @@ def _fetch_catalog(active_set: int) -> dict:
             if key not in item_roles or (item_roles[key] == 0 and score != 0):
                 item_roles[key] = score
 
+    # Item component recipes: norm(displayName) → [{name, iconUrl}]. Components
+    # are themselves items in CDragon, so resolve each composition apiName back
+    # to the items map. Used for carousel priority (aggregate components a comp
+    # needs). Prefer the first variant that has a non-empty recipe.
+    item_components: dict = {}
+    for item in data.get("items", []):
+        name = item.get("name") or ""
+        comp = item.get("composition") or []
+        if not (name and comp):
+            continue
+        key = _norm_key(name)
+        if key in item_components:
+            continue
+        resolved = []
+        for c in comp:
+            ci = items.get(c) or items.get(str(c))
+            resolved.append({
+                "name": (ci or {}).get("name") or humanize_api_name(c),
+                "iconUrl": (ci or {}).get("iconUrl"),
+            })
+        item_components[key] = resolved
+
     traits: dict = {}
     for trait in set_data.get("traits", []):
         api = trait.get("apiName") or ""
@@ -291,6 +313,7 @@ def _fetch_catalog(active_set: int) -> dict:
     return {
         "items": items, "traits": traits, "units": units, "augments": augments,
         "itemRoles": item_roles, "unitRanges": unit_ranges,
+        "itemComponents": item_components,
     }
 
 
@@ -885,6 +908,65 @@ def _jaccard(a: frozenset, b: frozenset) -> float:
     return inter / union if union else 0.0
 
 
+def _item_components(item_name: str, catalog: dict) -> list:
+    """Components (base items) that build the given full item."""
+    return (catalog.get("itemComponents") or {}).get(_norm_key(item_name)) or []
+
+
+def _compute_carousel_priority(core_units: list, catalog: dict, limit: int = 10) -> list:
+    """
+    Rank the components a comp wants across its item holders' BIS items, so a
+    player can prioritize carousel picks. Counts each holder's top ~3 items.
+    """
+    tally: dict = {}
+    icons: dict = {}
+    for u in core_units:
+        if (u.get("itemHolderPct") or 0) < BOARD_HOLDER_THRESHOLD:
+            continue
+        for it in (u.get("topItems") or [])[:3]:
+            for c in _item_components(it.get("name", ""), catalog):
+                cn = c.get("name")
+                if not cn:
+                    continue
+                tally[cn] = tally.get(cn, 0) + 1
+                if cn not in icons:
+                    icons[cn] = c.get("iconUrl")
+    ranked = sorted(
+        [{"name": k, "iconUrl": icons.get(k), "count": v} for k, v in tally.items()],
+        key=lambda x: -x["count"],
+    )
+    return ranked[:limit]
+
+
+def _pick_example_boards(cluster_boards: list, limit: int = 12) -> list:
+    """
+    Pick representative real boards from a cluster (best placements first),
+    trimmed to names only so snapshots stay small (icons resolved client-side).
+    """
+    ordered = sorted(cluster_boards, key=lambda b: (b.get("placement") or 9))
+    out = []
+    for b in ordered[:limit]:
+        units = []
+        for u in b.get("units", []):
+            nm = u.get("name")
+            if not nm:
+                continue
+            item_names = []
+            for it in (u.get("items") or []):
+                iname = it.get("name") if isinstance(it, dict) else str(it)
+                if iname:
+                    item_names.append(iname)
+            units.append({
+                "name": nm,
+                "cost": u.get("cost"),
+                "star": u.get("star", 1),
+                "items": item_names,
+            })
+        if units:
+            out.append({"placement": b.get("placement"), "units": units})
+    return out
+
+
 def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, catalog: dict | None = None) -> list:
     unit_sets = [frozenset(u["name"] for u in b.get("units", []) if u.get("name")) for b in boards]
     cluster_counts: list = []
@@ -1016,6 +1098,13 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
                 board_units.append(u)
             arch["board"] = _compute_board_layout(board_units[:12], catalog)
             arch.update(_classify_comp_leveling(core_units, flex_units, catalog))
+            # Carousel priority: aggregate the components a comp's item holders
+            # need across their BIS items, ranked by how many are required.
+            arch["carouselPriority"] = _compute_carousel_priority(core_units, catalog)
+        # Example boards: real games this archetype was built from, best
+        # placements first. Kept lean (names only) so the frontend resolves
+        # icons from the catalog and snapshots stay small.
+        arch["exampleBoards"] = _pick_example_boards(cluster_boards, limit=12)
         results.append(arch)
 
     results.sort(key=lambda x: -x["boardCount"])
