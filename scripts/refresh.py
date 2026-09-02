@@ -449,11 +449,11 @@ def _compute_board_layout(units: list, catalog: dict) -> list:
 LEVELING_GUIDE = {
     "1-Cost Reroll": {
         "curve": ["L4 @2-1", "L5 @2-5", "L6 @4-1", "L7 @5-1"],
-        "roll": "Stay L4–5 and slow-roll through Stage 3 for 1-cost 3★s (all-in 4-1 if not hit). Stop rolling and start leveling once your core 1-costs are 3-starred.",
+        "roll": "Stay Lvl 4–5 and slow-roll through Stage 3 for 1-cost 3★s (all-in 4-1 if not hit). Stop rolling and start leveling once your core 1-costs are 3-starred.",
     },
     "2-Cost Reroll": {
         "curve": ["L4 @2-1", "L5 @2-5", "L6 @3-2", "L7 @4-5", "L8 @5-2"],
-        "roll": "Roll to stabilize at L6 on 3-2, then slow-roll at L6 for 2-cost 3★s. Stop once your carry is 3-starred, then resume leveling. Go 9 late for a 5-cost.",
+        "roll": "Roll to stabilize at Lvl 6 on 3-2, then slow-roll at Lvl 6 for 2-cost 3★s. Stop once your carry is 3-starred, then resume leveling. Go 9 late for a 5-cost.",
     },
     "3-Cost Reroll": {
         "curve": ["L4 @2-1", "L5 @2-5", "L6 @3-2", "L7 @4-1", "L8 @5+", "L9 @6+"],
