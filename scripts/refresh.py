@@ -449,15 +449,15 @@ def _compute_board_layout(units: list, catalog: dict) -> list:
 LEVELING_GUIDE = {
     "1-Cost Reroll": {
         "curve": ["L4 @2-1", "L5 @2-5", "L6 @4-1", "L7 @5-1"],
-        "roll": "Stay Lvl 4–5 and slow-roll through Stage 3 for 1-cost 3★s (all-in 4-1 if not hit). Stop rolling and start leveling once your core 1-costs are 3-starred.",
+        "roll": "Slow-roll at Lvl 4–5 through Stage 3. Priority is your MAIN carry to 3★ (the itemized unit) — the other 1-costs get 3★ for board strength and don't need items. All-in on 4-1 if the carry isn't hit. Stop rolling and start leveling once your carry is 3★ and the board is stable.",
     },
     "2-Cost Reroll": {
         "curve": ["L4 @2-1", "L5 @2-5", "L6 @3-2", "L7 @4-5", "L8 @5-2"],
-        "roll": "Roll to stabilize at Lvl 6 on 3-2, then slow-roll at Lvl 6 for 2-cost 3★s. Stop once your carry is 3-starred, then resume leveling. Go 9 late for a 5-cost.",
+        "roll": "Roll to stabilize at Lvl 6 on 3-2, then slow-roll at Lvl 6 for 3★s — your MAIN carry first (it takes the items), supports after for stats. Stop once your carry is 3★, then resume leveling. Go 9 late for a 5-cost.",
     },
     "3-Cost Reroll": {
         "curve": ["L4 @2-1", "L5 @2-5", "L6 @3-2", "L7 @4-1", "L8 @5+", "L9 @6+"],
-        "roll": "Level 7 on 4-1 and slow-roll (down to ~30–50g) for 3-cost 3★s. Stop once your key 3-costs are 3-starred, then push levels.",
+        "roll": "Level 7 on 4-1 and slow-roll (down to ~30–50g) for 3★s — prioritize your MAIN carry (items go here); 3★ the others for board strength. Stop once your carry is 3★, then push levels.",
     },
     "Standard (Fast 8)": {
         "curve": ["L4 @2-1", "L5 @2-5", "L6 @3-1", "L7 @3-5", "L8 @4-2", "L9 @5-2"],
