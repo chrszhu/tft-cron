@@ -736,7 +736,10 @@ def _accumulate(acc: dict, participant: dict, catalog: dict, match_ts_s: int) ->
             {"name": _map_name(catalog["traits"], t["name"]), "tier": t.get("tier_current", 0)}
             for t in participant.get("traits", []) if t.get("tier_current", 0) > 0
         ]
-        acc["topBoards"].append({"placement": pl, "units": board_units, "traits": active_traits})
+        acc["topBoards"].append({
+            "placement": pl, "units": board_units, "traits": active_traits,
+            "augments": [str(a) for a in participant.get("augments", []) if a],
+        })
 
     for aug in participant.get("augments", []):
         ap = acc["augmentCounts"].setdefault(aug, {"games": 0, "total": 0})
@@ -942,11 +945,21 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
                         ie = ud["items"].setdefault(iname, {"iconUrl": it.get("iconUrl"), "count": 0})
                         ie["count"] += 1
         trait_counts: dict = {}
+        aug_counts: dict = {}  # api name -> {"count", "totalPl", "boards"}
+        boards_with_aug = 0
         for board in cluster_boards:
             for t in board.get("traits", []):
                 name = t.get("name")
                 if name:
                     trait_counts[name] = trait_counts.get(name, 0) + 1
+            board_augs = board.get("augments") or []
+            if board_augs:
+                boards_with_aug += 1
+            bpl = board.get("placement") or 0
+            for a in board_augs:
+                ae = aug_counts.setdefault(a, {"count": 0, "totalPl": 0})
+                ae["count"] += 1
+                ae["totalPl"] += bpl
         core_units, flex_units = [], []
         for name, d in sorted(unit_data.items(), key=lambda x: -x[1]["count"]):
             pct = d["count"] / total
@@ -970,6 +983,26 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
             key=lambda x: -x["count"],
         )
         arch = {"boardCount": total, "coreUnits": core_units, "flexUnits": flex_units, "traits": traits}
+        # Per-archetype augment patterns. % is relative to boards that actually
+        # recorded augments (older harvested boards may predate augment capture).
+        if aug_counts and boards_with_aug > 0:
+            aug_map = (catalog or {}).get("augments", {})
+            top_augments = sorted(
+                [{
+                    "name": (aug_map.get(a, {}).get("name") or humanize_api_name(a)),
+                    "iconUrl": aug_map.get(a, {}).get("iconUrl"),
+                    "tier": aug_map.get(a, {}).get("tier"),
+                    "count": e["count"],
+                    "pct": round(e["count"] / boards_with_aug * 100),
+                    "avgPlacement": round(e["totalPl"] / e["count"], 2) if e["count"] else None,
+                } for a, e in aug_counts.items()],
+                key=lambda x: (-x["count"], x["avgPlacement"] if x["avgPlacement"] is not None else 9),
+            )
+            # Keep meaningful patterns: appear in ≥20% of boards, min 2 boards.
+            top_augments = [x for x in top_augments if x["pct"] >= 20 and x["count"] >= 2][:6]
+            if top_augments:
+                arch["topAugments"] = top_augments
+                arch["augmentSampleBoards"] = boards_with_aug
         # Precompute the suggested-board layout so the frontend renders static
         # positions (no client-side inference / catalog dependency at render).
         if catalog:
