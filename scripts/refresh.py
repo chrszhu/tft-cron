@@ -1104,7 +1104,7 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
         # Example boards: real games this archetype was built from, best
         # placements first. Kept lean (names only) so the frontend resolves
         # icons from the catalog and snapshots stay small.
-        arch["exampleBoards"] = _pick_example_boards(cluster_boards, limit=12)
+        arch["exampleBoards"] = _pick_example_boards(cluster_boards, limit=20)
         results.append(arch)
 
     results.sort(key=lambda x: -x["boardCount"])
