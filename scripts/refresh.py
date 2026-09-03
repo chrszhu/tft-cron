@@ -199,6 +199,19 @@ def _ensure_schema():
                 computed_at  BIGINT  NOT NULL,
                 PRIMARY KEY (platform, tier, puuid, set_number)
             )""",
+            # Per-archetype full board list for on-demand "load more" paging.
+            # One row per board; PK prefix (…, arch_id) makes offset/limit an
+            # indexed range scan (cheap RU) instead of a JSONB scan.
+            """CREATE TABLE IF NOT EXISTS archetype_boards (
+                platform    TEXT NOT NULL,
+                tier        TEXT NOT NULL,
+                set_number  INT  NOT NULL,
+                arch_id     TEXT NOT NULL,
+                board_idx   INT  NOT NULL,
+                placement   INT,
+                board       JSONB NOT NULL,
+                PRIMARY KEY (platform, tier, set_number, arch_id, board_idx)
+            )""",
         ]:
             try:
                 cur.execute(ddl)
@@ -938,33 +951,50 @@ def _compute_carousel_priority(core_units: list, catalog: dict, limit: int = 10)
     return ranked[:limit]
 
 
-def _pick_example_boards(cluster_boards: list, limit: int = 12) -> list:
-    """
-    Pick representative real boards from a cluster (best placements first),
-    trimmed to names only so snapshots stay small (icons resolved client-side).
-    """
+def _trim_board(b: dict) -> dict | None:
+    """Trim a raw board to names only (icons resolved client-side)."""
+    units = []
+    for u in b.get("units", []):
+        nm = u.get("name")
+        if not nm:
+            continue
+        item_names = []
+        for it in (u.get("items") or []):
+            iname = it.get("name") if isinstance(it, dict) else str(it)
+            if iname:
+                item_names.append(iname)
+        units.append({
+            "name": nm,
+            "cost": u.get("cost"),
+            "star": u.get("star", 1),
+            "items": item_names,
+        })
+    if not units:
+        return None
+    return {"placement": b.get("placement"), "units": units}
+
+
+def _trim_boards_sorted(cluster_boards: list) -> list:
+    """All boards in a cluster, best placements first, trimmed to names only."""
     ordered = sorted(cluster_boards, key=lambda b: (b.get("placement") or 9))
     out = []
-    for b in ordered[:limit]:
-        units = []
-        for u in b.get("units", []):
-            nm = u.get("name")
-            if not nm:
-                continue
-            item_names = []
-            for it in (u.get("items") or []):
-                iname = it.get("name") if isinstance(it, dict) else str(it)
-                if iname:
-                    item_names.append(iname)
-            units.append({
-                "name": nm,
-                "cost": u.get("cost"),
-                "star": u.get("star", 1),
-                "items": item_names,
-            })
-        if units:
-            out.append({"placement": b.get("placement"), "units": units})
+    for b in ordered:
+        tb = _trim_board(b)
+        if tb:
+            out.append(tb)
     return out
+
+
+def _pick_example_boards(cluster_boards: list, limit: int = 12) -> list:
+    """Representative real boards from a cluster (best placements first)."""
+    return _trim_boards_sorted(cluster_boards)[:limit]
+
+
+def _archetype_id(core_units: list) -> str:
+    """Stable id for an archetype from its core unit set (order-independent)."""
+    import hashlib
+    key = "|".join(sorted(_norm_key(u.get("name", "")) for u in core_units if u.get("name")))
+    return hashlib.md5(key.encode("utf-8")).hexdigest()[:12]
 
 
 def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, catalog: dict | None = None) -> list:
@@ -1101,14 +1131,54 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
             # Carousel priority: aggregate the components a comp's item holders
             # need across their BIS items, ranked by how many are required.
             arch["carouselPriority"] = _compute_carousel_priority(core_units, catalog)
-        # Example boards: real games this archetype was built from, best
-        # placements first. Kept lean (names only) so the frontend resolves
-        # icons from the catalog and snapshots stay small.
-        arch["exampleBoards"] = _pick_example_boards(cluster_boards, limit=20)
+        # Stable id (from core units) so the frontend can page more boards from
+        # the DB on demand without a JSONB scan.
+        arch["id"] = _archetype_id(core_units)
+        # Full trimmed board list for on-demand paging (written to the
+        # archetype_boards table, then stripped from the cached payload). The
+        # snapshot only keeps the first 20 as static example boards.
+        all_boards = _trim_boards_sorted(cluster_boards)
+        arch["_allBoards"] = all_boards
+        arch["exampleBoards"] = all_boards[:20]
         results.append(arch)
 
     results.sort(key=lambda x: -x["boardCount"])
     return results[:30]
+
+
+def _store_archetype_boards(platform: str, tier: str, set_num: int, archetypes: list):
+    """
+    Replace the full per-archetype board list for a set in archetype_boards.
+    Wipes the set first so archetypes removed between runs don't leave stragglers.
+    """
+    from psycopg2.extras import execute_values
+
+    all_rows = []
+    for arch in archetypes:
+        arch_id = arch.get("id")
+        boards = arch.get("_allBoards") or []
+        if not arch_id or not boards:
+            continue
+        for idx, b in enumerate(boards):
+            all_rows.append((platform, tier, set_num, arch_id, idx,
+                             b.get("placement"), json.dumps(b)))
+
+    conn = _get_conn()
+    with conn.cursor() as cur:
+        cur.execute(
+            "DELETE FROM archetype_boards WHERE platform=%s AND tier=%s AND set_number=%s",
+            [platform, tier, set_num],
+        )
+        # Batched multi-row inserts — one round-trip per chunk (vs. per row).
+        for i in range(0, len(all_rows), 500):
+            execute_values(
+                cur,
+                "INSERT INTO archetype_boards "
+                "(platform, tier, set_number, arch_id, board_idx, placement, board) VALUES %s",
+                all_rows[i:i + 500],
+            )
+    conn.commit()
+    print(f"[archetypes] Stored {len(all_rows)} boards for on-demand paging (set {set_num})")
 
 
 def _cache_archetypes(platform: str, tier: str, active_set: int, target_set: int | None = None,
@@ -1155,6 +1225,11 @@ def _cache_archetypes(platform: str, tier: str, active_set: int, target_set: int
     if catalog is None:
         catalog = _fetch_catalog(set_num)
     archetypes = _cluster_boards(all_boards, catalog=catalog)
+    # Persist each archetype's full board list for on-demand "load more" paging,
+    # then strip the heavy field so meta_cache / snapshots stay lean.
+    _store_archetype_boards(platform, tier, set_num, archetypes)
+    for arch in archetypes:
+        arch.pop("_allBoards", None)
     result = {
         "archetypes": archetypes,
         "totalBoards": len(all_boards),
