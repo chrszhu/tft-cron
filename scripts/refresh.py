@@ -553,6 +553,135 @@ def _classify_comp_leveling(core_units: list, flex_units: list, catalog: dict) -
     }
 
 
+# ── Early-game openers ──────────────────────────────────────────────────────────
+# What to build toward in the early game before pivoting to the final board.
+# Curated per-carry from community guides (BunnyMuffins meta + Set 18
+# climbing/opener videos, patch 18.1). Keys are normalized carry names.
+OPENER_LIBRARY = {
+    "ahri": {
+        "label": "Blossom opener", "streak": "win",
+        "units": ["Karma", "Master Yi", "Veigar", "Rakan"],
+        "detail": "Open 3 Blossom and hold your AP items on Karma to farm empowered Wisps; win-streak, add Rakan at level 4, then Fast 8 and move the items onto Ahri.",
+    },
+    "soraka": {
+        "label": "AP / Blossom opener", "streak": "flex",
+        "units": ["Karma", "Malphite"],
+        "detail": "Open a strong AP board (Karma holds the items) around Blossom; slam pure tank items on Malphite and keep him alive. Don't over-slam AP — item quality matters here.",
+    },
+    "cassiopeia": {
+        "label": "Cassio + Defenders / Coven", "streak": "loss",
+        "units": ["Cassiopeia", "Diana"],
+        "detail": "Open Cassio + Defenders, or lose-streak Coven for gold. Cassio needs BIS (Gunblade + Deathcap/Archangel's + Shojin/Blue Buff) — pivot if you can't realistically reach it.",
+    },
+    "kayle": {
+        "label": "Kayle / Solar reroll", "streak": "flex",
+        "units": ["Kayle", "Xayah"],
+        "detail": "Open around a Kayle/Xayah + slammable items and save HP in stage 2. Don't press level early — slow-roll for 3-stars; if flooded with Solar units, lose-streak into the reroll.",
+    },
+    "master yi": {
+        "label": "Blossom / Rengar opener", "streak": "flex",
+        "units": ["Master Yi", "Rengar", "Karma"],
+        "detail": "Open around an early Yi/Rengar orb or a 2-1 artifact + 3 Blossom. Yi+Rengar = AD, Yi solo = AP. Don't hard-commit without an artifact or an uncontested Rengar.",
+    },
+    "veigar": {
+        "label": "Veigar / Blossom reroll", "streak": "flex",
+        "units": ["Veigar", "Kobuko", "Rek'Sai"],
+        "detail": "Open Veigar + a Blossom/Spriggan core and hold AP items; slow-roll to 3-star Veigar (Spriggan ramps his backline AP over the course of the fight).",
+    },
+    "cinderling": {
+        "label": "Riftbeast / AD reroll", "streak": "flex",
+        "units": ["Cinderling", "Pebbles", "Scuttlecrab"],
+        "detail": "Open 3 Riftbeast (Cinderling + jungle monsters) for early Alpha-Mark tempo; slam AD/IE and slow-roll Cinderling, then put the Alpha Mark on him to make a super-carry.",
+    },
+    "draven": {
+        "label": "AD Fast 9 opener", "streak": "win",
+        "units": ["Xayah", "Rakan", "Camille"],
+        "detail": "Open a strong AD board (Rageblade Xayah / Elderwood) and win-streak hard. Draven needs Guinsoo's; only force this if you can reliably reach level 9.",
+    },
+    "aphelios": {
+        "label": "AD tempo opener", "streak": "flex",
+        "units": ["Cinderling", "Camille", "Akali"],
+        "detail": "Open around any AD/attack-speed slam (Guinsoo's is fine early) with AD holders Cinderling/Camille/Akali; Fast 8 and flex the frontline around Sentinel.",
+    },
+    "nidalee": {
+        "label": "AP item-slam opener", "streak": "flex",
+        "units": ["Karma", "Rakan"],
+        "detail": "Very item-hungry: slam AP (Jeweled Gauntlet / Morello / Guinsoo's) early on Karma. Flex a 4-Vanguard frontline; needs ~3 rods for Nidalee + Morgana.",
+    },
+    "tristana": {
+        "label": "Attack-speed reroll", "streak": "flex",
+        "units": ["Tristana", "Cinderling"],
+        "detail": "Open around bows / attack-speed slams (Guinsoo's); slow-roll to 3-star Tristana. Hunter AD line — stack bows for her attack-speed scaling.",
+    },
+}
+
+_AP_COMPONENTS = {"needlessly large rod", "tear of the goddess"}
+_AD_COMPONENTS = {"b.f. sword", "recurve bow"}
+
+
+def _unit_by_display_name(catalog: dict, display_name: str) -> Optional[dict]:
+    """Resolve a unit entry (name/iconUrl/cost) by its human display name."""
+    target = _norm_key(display_name)
+    if not target:
+        return None
+    for entry in (catalog.get("units") or {}).values():
+        if _norm_key(entry.get("name", "")) == target:
+            return entry
+    return None
+
+
+def _carry_dmg_type(arch: dict, catalog: dict) -> str:
+    """Infer whether the carry itemizes AD or AP from its top items' components."""
+    carry = arch.get("carryName")
+    units = (arch.get("coreUnits") or []) + (arch.get("flexUnits") or [])
+    cu = next((u for u in units if u.get("name") == carry), None)
+    ap = ad = 0
+    if cu:
+        for it in (cu.get("topItems") or [])[:2]:
+            for c in _item_components(it.get("name", ""), catalog):
+                cn = _norm_key(c.get("name", ""))
+                if cn in {_norm_key(x) for x in _AP_COMPONENTS}:
+                    ap += 1
+                elif cn in {_norm_key(x) for x in _AD_COMPONENTS}:
+                    ad += 1
+    return "AP" if ap > ad else "AD"
+
+
+def _fallback_opener(arch: dict, dmg: str) -> dict:
+    """Generic opener for comps whose carry isn't in the curated library."""
+    cat = arch.get("category") or ""
+    carry = arch.get("carryName") or "your carry"
+    if "Reroll" in cat:
+        if dmg == "AP":
+            return {"label": "AP reroll opener", "streak": "flex", "units": ["Karma"],
+                    "detail": f"Hold AP on Karma early and play copies of {carry}; win/loss-streak for econ, then slow-roll to 3-star {carry}."}
+        return {"label": "AD reroll opener", "streak": "flex", "units": ["Cinderling", "Camille"],
+                "detail": f"Slam an AD/attack-speed item and play copies of {carry}; win/loss-streak for econ, then slow-roll to 3-star {carry}."}
+    if "Fast 9" in cat:
+        return {"label": "AD Fast 9 opener", "streak": "win", "units": ["Xayah", "Rakan"],
+                "detail": f"Win-streak a strong AD opener and push econ hard — you need level 9 to field {carry} + legendaries."}
+    if dmg == "AP":
+        return {"label": "AP tempo opener", "streak": "win", "units": ["Karma"],
+                "detail": f"Open 3 Blossom and hold AP on Karma to farm Wisps; win-streak to Fast 8, then itemize {carry}."}
+    return {"label": "AD tempo opener", "streak": "win", "units": ["Cinderling", "Camille"],
+            "detail": f"Slam IE/Deathblade and hold AD on Cinderling/Camille; win-streak to Fast 8, then itemize {carry}."}
+
+
+def _classify_opener(arch: dict, catalog: dict) -> dict:
+    """Attach an early-game opener plan (curated where known, else data-driven)."""
+    carry_norm = _norm_key(arch.get("carryName") or "")
+    dmg = _carry_dmg_type(arch, catalog)
+    entry = next((v for k, v in OPENER_LIBRARY.items() if _norm_key(k) == carry_norm), None)
+    if not entry:
+        entry = _fallback_opener(arch, dmg)
+    units = []
+    for nm in entry.get("units", []):
+        u = _unit_by_display_name(catalog, nm)
+        units.append({"name": nm, "iconUrl": (u or {}).get("iconUrl"), "cost": (u or {}).get("cost")})
+    return {"label": entry["label"], "streak": entry.get("streak", "flex"),
+            "detail": entry["detail"], "units": units}
+
+
 # ── Riot API ──────────────────────────────────────────────────────────────────
 class ApiKeyExpiredError(SystemExit):
     """Raised (exit code 2) when Riot returns 401/403 — key is invalid or expired."""
@@ -997,7 +1126,7 @@ def _archetype_id(core_units: list) -> str:
     return hashlib.md5(key.encode("utf-8")).hexdigest()[:12]
 
 
-def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, catalog: dict | None = None) -> list:
+def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, catalog: dict | None = None, with_opener: bool = True) -> list:
     unit_sets = [frozenset(u["name"] for u in b.get("units", []) if u.get("name")) for b in boards]
     cluster_counts: list = []
     cluster_sizes: list = []
@@ -1128,6 +1257,11 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
                 board_units.append(u)
             arch["board"] = _compute_board_layout(board_units[:12], catalog)
             arch.update(_classify_comp_leveling(core_units, flex_units, catalog))
+            # Early-game opener: what to build toward before pivoting to the
+            # final board (needs carryName/category from the leveling step above).
+            # Openers are curated for the live set only; skip on historical sets.
+            if with_opener:
+                arch["opener"] = _classify_opener(arch, catalog)
             # Carousel priority: aggregate the components a comp's item holders
             # need across their BIS items, ranked by how many are required.
             arch["carouselPriority"] = _compute_carousel_priority(core_units, catalog)
@@ -1224,7 +1358,7 @@ def _cache_archetypes(platform: str, tier: str, active_set: int, target_set: int
 
     if catalog is None:
         catalog = _fetch_catalog(set_num)
-    archetypes = _cluster_boards(all_boards, catalog=catalog)
+    archetypes = _cluster_boards(all_boards, catalog=catalog, with_opener=not is_historical)
     # Persist each archetype's full board list for on-demand "load more" paging,
     # then strip the heavy field so meta_cache / snapshots stay lean.
     _store_archetype_boards(platform, tier, set_num, archetypes)
