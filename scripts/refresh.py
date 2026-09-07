@@ -1416,13 +1416,17 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
                 arch["opener"] = _classify_opener(arch, catalog)
                 # In-game Team Planner code ("Copy team code") — live set only,
                 # since CDragon only publishes codes for the current set.
-                tc = _team_code(
-                    [u["name"] for u in board_units],
-                    catalog.get("teamPlanner") or {},
-                    catalog.get("activeSet") or 0,
-                )
+                tp = catalog.get("teamPlanner") or {}
+                aset = catalog.get("activeSet") or 0
+                tc = _team_code([u["name"] for u in board_units], tp, aset)
                 if tc:
                     arch["teamCode"] = tc
+                # Same for the early-game opener board so users can import the
+                # transition comp too.
+                op = arch.get("opener") or {}
+                op_tc = _team_code([u["name"] for u in op.get("units", [])], tp, aset)
+                if op_tc:
+                    op["teamCode"] = op_tc
             # Carousel priority: aggregate the components a comp's item holders
             # need across their BIS items, ranked by how many are required.
             arch["carouselPriority"] = _compute_carousel_priority(core_units, catalog)
