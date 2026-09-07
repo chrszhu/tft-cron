@@ -2477,9 +2477,13 @@ def _seed_current_set(platform: str, active_set: int, tier: str = "all"):
         return len(rows)
 
     while queue and _boards() < target_boards:
+        # Gather-then-commit: no DB writes mid-crawl. Everything is accumulated in
+        # memory and only persisted once the crawl completes (single _flush below),
+        # so a failed/timed-out crawl spends ZERO write RU. At these targets the
+        # crawl finishes in ~30 min (well within the job limit), so DB checkpoints
+        # aren't needed for resumption.
         if processed > 0 and processed % 10 == 0:
-            n = _flush()
-            print(f"\n[seed]   checkpoint: flushed {n} players ({_boards()} boards)")
+            print(f"\n[seed]   progress: {len(accs)} players in memory ({_boards()} boards)")
         pid = queue.popleft()
         processed += 1
         time.sleep(REQUEST_DELAY)
