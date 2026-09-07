@@ -813,6 +813,39 @@ def _opener_from_tft(comp: dict, arch: dict, catalog: dict) -> Optional[dict]:
     }
 
 
+def _carousel_from_tft(comp: dict, catalog: dict) -> Optional[list]:
+    """Carousel priority from a matched tftactics comp's curated component list.
+
+    tftactics weights carousel priority toward the *key items* a comp wants
+    (the carry/tank BIS), not the most-frequently-seen components. Its
+    ``carrousel`` field is an ordered list of {item, component} pairs; we keep
+    that priority order and count how many BIS items need each component.
+    """
+    car = (comp or {}).get("carrousel") or []
+    if not car:
+        return None
+    # Component display-name → icon lookup from the catalog items map.
+    icons: dict = {}
+    for v in (catalog.get("items") or {}).values():
+        nm = (v or {}).get("name")
+        if nm:
+            icons.setdefault(_norm_key(nm), (v or {}).get("iconUrl"))
+    order: list = []
+    tally: dict = {}
+    for entry in car:
+        cname = (entry or {}).get("component")
+        if not cname:
+            continue
+        k = _norm_key(cname)
+        if k not in tally:
+            order.append(cname)
+            tally[k] = 0
+        tally[k] += 1
+    out = [{"name": nm, "iconUrl": icons.get(_norm_key(nm)), "count": tally[_norm_key(nm)]}
+           for nm in order]
+    return out or None
+
+
 def _classify_opener(arch: dict, catalog: dict) -> dict:
     """Attach an early-game opener plan.
 
@@ -1427,9 +1460,16 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
                 op_tc = _team_code([u["name"] for u in op.get("units", [])], tp, aset)
                 if op_tc:
                     op["teamCode"] = op_tc
-            # Carousel priority: aggregate the components a comp's item holders
-            # need across their BIS items, ranked by how many are required.
-            arch["carouselPriority"] = _compute_carousel_priority(core_units, catalog)
+                # Carousel priority: prefer tftactics' curated key-item components
+                # (weighted toward the comp's BIS carry/tank items) when the comp
+                # matches a meta comp; else fall back to the frequency tally below.
+                match = _match_tft_comp(arch)
+                car = _carousel_from_tft(match, catalog) if match else None
+                if car:
+                    arch["carouselPriority"] = car
+            # Carousel priority fallback: aggregate the components a comp's item
+            # holders need across their BIS items, ranked by how many are required.
+            arch.setdefault("carouselPriority", _compute_carousel_priority(core_units, catalog))
         # Stable id (from core units) so the frontend can page more boards from
         # the DB on demand without a JSONB scan.
         arch["id"] = _archetype_id(core_units)

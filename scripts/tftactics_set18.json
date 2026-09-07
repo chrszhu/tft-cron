@@ -14,7 +14,8 @@
    "Gnar"
   ],
   "carries": [
-   "Ahri"
+   "Ahri",
+   "Sett"
   ],
   "mid": [
    "Karma",
@@ -22,6 +23,23 @@
    "Yorick",
    "Yunara",
    "Azir"
+  ],
+  "carrousel": [
+   {
+    "item": "Executioner Emblem",
+    "component": "Spatula",
+    "shadow": false
+   },
+   {
+    "item": "Spear of Shojin",
+    "component": "Tear of the Goddess",
+    "shadow": false
+   },
+   {
+    "item": "Spear of Shojin",
+    "component": "B.F. Sword",
+    "shadow": false
+   }
   ]
  },
  {
@@ -39,7 +57,8 @@
    "Gnar"
   ],
   "carries": [
-   "Ahri"
+   "Ahri",
+   "Sett"
   ],
   "mid": [
    "Karma",
@@ -47,6 +66,23 @@
    "Yorick",
    "Yunara",
    "Azir"
+  ],
+  "carrousel": [
+   {
+    "item": "Spear of Shojin",
+    "component": "Tear of the Goddess",
+    "shadow": false
+   },
+   {
+    "item": "Spear of Shojin",
+    "component": "B.F. Sword",
+    "shadow": false
+   },
+   {
+    "item": "Jeweled Gauntlet",
+    "component": "Needlessly Large Rod",
+    "shadow": false
+   }
   ]
  },
  {
@@ -64,7 +100,8 @@
    "Taric"
   ],
   "carries": [
-   "Ahri"
+   "Ahri",
+   "Sentinel"
   ],
   "mid": [
    "Rakan",
@@ -72,6 +109,23 @@
    "Karma",
    "Leblanc",
    "Yunara"
+  ],
+  "carrousel": [
+   {
+    "item": "Invoker Emblem",
+    "component": "Frying Pan",
+    "shadow": false
+   },
+   {
+    "item": "Invoker Emblem",
+    "component": "Tear of the Goddess",
+    "shadow": false
+   },
+   {
+    "item": "Jeweled Gauntlet",
+    "component": "Needlessly Large Rod",
+    "shadow": false
+   }
   ]
  },
  {
@@ -89,7 +143,8 @@
    "Taric"
   ],
   "carries": [
-   "Ahri"
+   "Ahri",
+   "Sentinel"
   ],
   "mid": [
    "Camille",
@@ -97,6 +152,23 @@
    "Caitlyn",
    "Elise",
    "Cassiopeia"
+  ],
+  "carrousel": [
+   {
+    "item": "Spear of Shojin",
+    "component": "Tear of the Goddess",
+    "shadow": false
+   },
+   {
+    "item": "Spear of Shojin",
+    "component": "B.F. Sword",
+    "shadow": false
+   },
+   {
+    "item": "Jeweled Gauntlet",
+    "component": "Needlessly Large Rod",
+    "shadow": false
+   }
   ]
  },
  {
@@ -114,7 +186,8 @@
    "Soraka"
   ],
   "carries": [
-   "Cassiopeia"
+   "Cassiopeia",
+   "Fiddlesticks"
   ],
   "mid": [
    "Leona",
@@ -122,6 +195,23 @@
    "Shen",
    "Cassiopeia",
    "Fiddlesticks"
+  ],
+  "carrousel": [
+   {
+    "item": "Archangel's Staff",
+    "component": "Tear of the Goddess",
+    "shadow": false
+   },
+   {
+    "item": "Archangel's Staff",
+    "component": "Needlessly Large Rod",
+    "shadow": false
+   },
+   {
+    "item": "Hextech Gunblade",
+    "component": "B.F. Sword",
+    "shadow": false
+   }
   ]
  },
  {
@@ -140,7 +230,8 @@
   ],
   "carries": [
    "Morgana",
-   "Nidalee"
+   "Nidalee",
+   "Sentinel"
   ],
   "mid": [
    "Camille",
@@ -148,6 +239,23 @@
    "Caitlyn",
    "Elise",
    "Kogmaw"
+  ],
+  "carrousel": [
+   {
+    "item": "Guinsoo's Rageblade",
+    "component": "Needlessly Large Rod",
+    "shadow": false
+   },
+   {
+    "item": "Guinsoo's Rageblade",
+    "component": "Recurve Bow",
+    "shadow": false
+   },
+   {
+    "item": "Jeweled Gauntlet",
+    "component": "Sparring Gloves",
+    "shadow": false
+   }
   ]
  },
  {
@@ -174,6 +282,23 @@
    "Gromp",
    "Master Yi",
    "Vi"
+  ],
+  "carrousel": [
+   {
+    "item": "Guinsoo's Rageblade",
+    "component": "Recurve Bow",
+    "shadow": false
+   },
+   {
+    "item": "Guinsoo's Rageblade",
+    "component": "Needlessly Large Rod",
+    "shadow": false
+   },
+   {
+    "item": "Edge of Night",
+    "component": "B.F. Sword",
+    "shadow": false
+   }
   ]
  },
  {
@@ -192,6 +317,7 @@
   ],
   "carries": [
    "Cinderling",
+   "Krug",
    "Pebbles"
   ],
   "mid": [
@@ -200,6 +326,23 @@
    "Murkwolf",
    "Scuttlecrab",
    "Krug"
+  ],
+  "carrousel": [
+   {
+    "item": "Blue Buff",
+    "component": "Tear of the Goddess",
+    "shadow": false
+   },
+   {
+    "item": "Jeweled Gauntlet",
+    "component": "Sparring Gloves",
+    "shadow": false
+   },
+   {
+    "item": "Jeweled Gauntlet",
+    "component": "Needlessly Large Rod",
+    "shadow": false
+   }
   ]
  },
  {
@@ -217,6 +360,7 @@
    "Lillia"
   ],
   "carries": [
+   "Ornn",
    "Xayah"
   ],
   "mid": [
@@ -225,6 +369,23 @@
    "Varus",
    "Xayah",
    "Shen"
+  ],
+  "carrousel": [
+   {
+    "item": "Guinsoo's Rageblade",
+    "component": "Recurve Bow",
+    "shadow": false
+   },
+   {
+    "item": "Guinsoo's Rageblade",
+    "component": "Needlessly Large Rod",
+    "shadow": false
+   },
+   {
+    "item": "Infinity Edge",
+    "component": "B.F. Sword",
+    "shadow": false
+   }
   ]
  },
  {
@@ -242,7 +403,8 @@
    "Gnar"
   ],
   "carries": [
-   "Aphelios"
+   "Aphelios",
+   "Lillia"
   ],
   "mid": [
    "Ornn",
@@ -250,6 +412,23 @@
    "Xayah",
    "Alistar",
    "Shen"
+  ],
+  "carrousel": [
+   {
+    "item": "Guinsoo's Rageblade",
+    "component": "Recurve Bow",
+    "shadow": false
+   },
+   {
+    "item": "Guinsoo's Rageblade",
+    "component": "Needlessly Large Rod",
+    "shadow": false
+   },
+   {
+    "item": "Infinity Edge",
+    "component": "B.F. Sword",
+    "shadow": false
+   }
   ]
  },
  {
@@ -267,6 +446,7 @@
    "Kennen"
   ],
   "carries": [
+   "Amumu",
    "Sivir"
   ],
   "mid": [
@@ -275,6 +455,23 @@
    "Caitlyn",
    "Elise",
    "Tristana"
+  ],
+  "carrousel": [
+   {
+    "item": "Infinity Edge",
+    "component": "B.F. Sword",
+    "shadow": false
+   },
+   {
+    "item": "Infinity Edge",
+    "component": "Sparring Gloves",
+    "shadow": false
+   },
+   {
+    "item": "Striker's Flail",
+    "component": "Giant's Belt",
+    "shadow": false
+   }
   ]
  },
  {
@@ -292,6 +489,7 @@
    "Sentinel"
   ],
   "carries": [
+   "Amumu",
    "Nidalee"
   ],
   "mid": [
@@ -300,6 +498,23 @@
    "Varus",
    "Shen",
    "Master Yi"
+  ],
+  "carrousel": [
+   {
+    "item": "Jeweled Gauntlet",
+    "component": "Needlessly Large Rod",
+    "shadow": false
+   },
+   {
+    "item": "Jeweled Gauntlet",
+    "component": "Sparring Gloves",
+    "shadow": false
+   },
+   {
+    "item": "Nashor's Tooth",
+    "component": "Recurve Bow",
+    "shadow": false
+   }
   ]
  },
  {
@@ -317,6 +532,7 @@
    "Kennen"
   ],
   "carries": [
+   "Malphite",
    "Zyra"
   ],
   "mid": [
@@ -325,6 +541,23 @@
    "Pebbles",
    "Veigar",
    "Teemo"
+  ],
+  "carrousel": [
+   {
+    "item": "Morellonomicon",
+    "component": "Needlessly Large Rod",
+    "shadow": false
+   },
+   {
+    "item": "Morellonomicon",
+    "component": "Giant's Belt",
+    "shadow": false
+   },
+   {
+    "item": "Void Staff",
+    "component": "Recurve Bow",
+    "shadow": false
+   }
   ]
  },
  {
@@ -342,6 +575,7 @@
    "Kennen"
   ],
   "carries": [
+   "Malphite",
    "Soraka"
   ],
   "mid": [
@@ -350,6 +584,23 @@
    "Pebbles",
    "Veigar",
    "Teemo"
+  ],
+  "carrousel": [
+   {
+    "item": "Jeweled Gauntlet",
+    "component": "Needlessly Large Rod",
+    "shadow": false
+   },
+   {
+    "item": "Jeweled Gauntlet",
+    "component": "Sparring Gloves",
+    "shadow": false
+   },
+   {
+    "item": "Nashor's Tooth",
+    "component": "Recurve Bow",
+    "shadow": false
+   }
   ]
  },
  {
@@ -367,6 +618,7 @@
    "Gnar"
   ],
   "carries": [
+   "Rammus",
    "Tristana",
    "Sivir"
   ],
@@ -376,6 +628,23 @@
    "Xayah",
    "Rammus",
    "Tristana"
+  ],
+  "carrousel": [
+   {
+    "item": "Infinity Edge",
+    "component": "B.F. Sword",
+    "shadow": false
+   },
+   {
+    "item": "Infinity Edge",
+    "component": "Sparring Gloves",
+    "shadow": false
+   },
+   {
+    "item": "Guinsoo's Rageblade",
+    "component": "Recurve Bow",
+    "shadow": false
+   }
   ]
  },
  {
@@ -393,6 +662,7 @@
    "Gnar"
   ],
   "carries": [
+   "Rammus",
    "Tristana"
   ],
   "mid": [
@@ -401,6 +671,23 @@
    "Teemo",
    "Rammus",
    "Tristana"
+  ],
+  "carrousel": [
+   {
+    "item": "Infinity Edge",
+    "component": "B.F. Sword",
+    "shadow": false
+   },
+   {
+    "item": "Infinity Edge",
+    "component": "Sparring Gloves",
+    "shadow": false
+   },
+   {
+    "item": "Guinsoo's Rageblade",
+    "component": "Recurve Bow",
+    "shadow": false
+   }
   ]
  },
  {
@@ -418,7 +705,8 @@
    "Taric"
   ],
   "carries": [
-   "Teemo"
+   "Teemo",
+   "Sentinel"
   ],
   "mid": [
    "Kobuko",
@@ -426,6 +714,23 @@
    "Shen",
    "Teemo",
    "Rammus"
+  ],
+  "carrousel": [
+   {
+    "item": "Jeweled Gauntlet",
+    "component": "Needlessly Large Rod",
+    "shadow": false
+   },
+   {
+    "item": "Jeweled Gauntlet",
+    "component": "Sparring Gloves",
+    "shadow": false
+   },
+   {
+    "item": "Nashor's Tooth",
+    "component": "Recurve Bow",
+    "shadow": false
+   }
   ]
  },
  {
@@ -443,6 +748,7 @@
    "Taric"
   ],
   "carries": [
+   "Hecarim",
    "Khazix"
   ],
   "mid": [
@@ -451,6 +757,23 @@
    "Murkwolf",
    "Scuttlecrab",
    "Khazix"
+  ],
+  "carrousel": [
+   {
+    "item": "Edge of Night",
+    "component": "B.F. Sword",
+    "shadow": false
+   },
+   {
+    "item": "Edge of Night",
+    "component": "Chain Vest",
+    "shadow": false
+   },
+   {
+    "item": "Jeweled Gauntlet",
+    "component": "Needlessly Large Rod",
+    "shadow": false
+   }
   ]
  },
  {
@@ -468,7 +791,8 @@
    "Taric"
   ],
   "carries": [
-   "Aphelios"
+   "Aphelios",
+   "Sentinel"
   ],
   "mid": [
    "Ornn",
@@ -476,6 +800,23 @@
    "Varus",
    "Xayah",
    "Hecarim"
+  ],
+  "carrousel": [
+   {
+    "item": "Edge of Night",
+    "component": "B.F. Sword",
+    "shadow": false
+   },
+   {
+    "item": "Edge of Night",
+    "component": "Chain Vest",
+    "shadow": false
+   },
+   {
+    "item": "Infinity Edge",
+    "component": "Sparring Gloves",
+    "shadow": false
+   }
   ]
  },
  {
@@ -493,7 +834,8 @@
    "Alune"
   ],
   "carries": [
-   "Kayle"
+   "Kayle",
+   "Sejuani"
   ],
   "mid": [
    "Leona",
@@ -501,6 +843,23 @@
    "Kayle",
    "Sejuani",
    "Shen"
+  ],
+  "carrousel": [
+   {
+    "item": "Guinsoo's Rageblade",
+    "component": "Recurve Bow",
+    "shadow": false
+   },
+   {
+    "item": "Guinsoo's Rageblade",
+    "component": "Needlessly Large Rod",
+    "shadow": false
+   },
+   {
+    "item": "Jeweled Gauntlet",
+    "component": "Sparring Gloves",
+    "shadow": false
+   }
   ]
  },
  {
@@ -518,7 +877,8 @@
    "Taric"
   ],
   "carries": [
-   "Morgana"
+   "Morgana",
+   "Sentinel"
   ],
   "mid": [
    "Camille",
@@ -526,6 +886,23 @@
    "Caitlyn",
    "Elise",
    "Cassiopeia"
+  ],
+  "carrousel": [
+   {
+    "item": "Morellonomicon",
+    "component": "Needlessly Large Rod",
+    "shadow": false
+   },
+   {
+    "item": "Morellonomicon",
+    "component": "Giant's Belt",
+    "shadow": false
+   },
+   {
+    "item": "Void Staff",
+    "component": "Tear of the Goddess",
+    "shadow": false
+   }
   ]
  },
  {
@@ -543,6 +920,7 @@
    "Alune"
   ],
   "carries": [
+   "Hecarim",
    "Khazix",
    "Rengar"
   ],
@@ -552,6 +930,23 @@
    "Leblanc",
    "Khazix",
    "Rengar"
+  ],
+  "carrousel": [
+   {
+    "item": "Edge of Night",
+    "component": "B.F. Sword",
+    "shadow": false
+   },
+   {
+    "item": "Edge of Night",
+    "component": "Chain Vest",
+    "shadow": false
+   },
+   {
+    "item": "Hand of Justice",
+    "component": "Sparring Gloves",
+    "shadow": false
+   }
   ]
  },
  {
@@ -569,6 +964,7 @@
    "Taric"
   ],
   "carries": [
+   "Hecarim",
    "Rengar"
   ],
   "mid": [
@@ -577,6 +973,23 @@
    "Murkwolf",
    "Scuttlecrab",
    "Rengar"
+  ],
+  "carrousel": [
+   {
+    "item": "Edge of Night",
+    "component": "B.F. Sword",
+    "shadow": false
+   },
+   {
+    "item": "Edge of Night",
+    "component": "Chain Vest",
+    "shadow": false
+   },
+   {
+    "item": "Guinsoo's Rageblade",
+    "component": "Recurve Bow",
+    "shadow": false
+   }
   ]
  },
  {
@@ -594,7 +1007,8 @@
    "Alune"
   ],
   "carries": [
-   "Ahri"
+   "Ahri",
+   "Lillia"
   ],
   "mid": [
    "Karma",
@@ -602,6 +1016,23 @@
    "Yorick",
    "Yunara",
    "Azir"
+  ],
+  "carrousel": [
+   {
+    "item": "Jeweled Gauntlet",
+    "component": "Needlessly Large Rod",
+    "shadow": false
+   },
+   {
+    "item": "Jeweled Gauntlet",
+    "component": "Sparring Gloves",
+    "shadow": false
+   },
+   {
+    "item": "Nashor's Tooth",
+    "component": "Recurve Bow",
+    "shadow": false
+   }
   ]
  },
  {
@@ -620,7 +1051,8 @@
    "Taric"
   ],
   "carries": [
-   "Draven"
+   "Draven",
+   "Maokai"
   ],
   "mid": [
    "Ornn",
@@ -628,6 +1060,23 @@
    "Xayah",
    "Alistar",
    "Shen"
+  ],
+  "carrousel": [
+   {
+    "item": "Infinity Edge",
+    "component": "B.F. Sword",
+    "shadow": false
+   },
+   {
+    "item": "Infinity Edge",
+    "component": "Sparring Gloves",
+    "shadow": false
+   },
+   {
+    "item": "Spear of Shojin",
+    "component": "Tear of the Goddess",
+    "shadow": false
+   }
   ]
  },
  {
@@ -645,6 +1094,7 @@
    "Gnar"
   ],
   "carries": [
+   "Hecarim",
    "Ezreal"
   ],
   "mid": [
@@ -653,6 +1103,23 @@
    "Alistar",
    "Leblanc",
    "Hecarim"
+  ],
+  "carrousel": [
+   {
+    "item": "Spear of Shojin",
+    "component": "B.F. Sword",
+    "shadow": false
+   },
+   {
+    "item": "Spear of Shojin",
+    "component": "Tear of the Goddess",
+    "shadow": false
+   },
+   {
+    "item": "Infinity Edge",
+    "component": "Sparring Gloves",
+    "shadow": false
+   }
   ]
  },
  {
@@ -670,6 +1137,7 @@
    "Taric"
   ],
   "carries": [
+   "Sentinel",
    "Elder Dragon"
   ],
   "mid": [
@@ -678,6 +1146,23 @@
    "Gromp",
    "Scuttlecrab",
    "Krug"
+  ],
+  "carrousel": [
+   {
+    "item": "Infinity Edge",
+    "component": "B.F. Sword",
+    "shadow": false
+   },
+   {
+    "item": "Infinity Edge",
+    "component": "Sparring Gloves",
+    "shadow": false
+   },
+   {
+    "item": "Last Whisper",
+    "component": "Recurve Bow",
+    "shadow": false
+   }
   ]
  },
  {
@@ -695,6 +1180,7 @@
    "Gnar"
   ],
   "carries": [
+   "RekSai",
    "Veigar"
   ],
   "mid": [
@@ -703,6 +1189,23 @@
    "Veigar",
    "Teemo",
    "Fiddlesticks"
+  ],
+  "carrousel": [
+   {
+    "item": "Jeweled Gauntlet",
+    "component": "Needlessly Large Rod",
+    "shadow": false
+   },
+   {
+    "item": "Jeweled Gauntlet",
+    "component": "Sparring Gloves",
+    "shadow": false
+   },
+   {
+    "item": "Blue Buff",
+    "component": "Tear of the Goddess",
+    "shadow": false
+   }
   ]
  },
  {
@@ -720,6 +1223,7 @@
    "Gnar"
   ],
   "carries": [
+   "RekSai",
    "Veigar"
   ],
   "mid": [
@@ -728,6 +1232,23 @@
    "Veigar",
    "Leblanc",
    "Rammus"
+  ],
+  "carrousel": [
+   {
+    "item": "Jeweled Gauntlet",
+    "component": "Needlessly Large Rod",
+    "shadow": false
+   },
+   {
+    "item": "Jeweled Gauntlet",
+    "component": "Sparring Gloves",
+    "shadow": false
+   },
+   {
+    "item": "Nashor's Tooth",
+    "component": "Recurve Bow",
+    "shadow": false
+   }
   ]
  },
  {
@@ -745,6 +1266,7 @@
    "Zyra"
   ],
   "carries": [
+   "Krug",
    "Mama Beak"
   ],
   "mid": [
@@ -753,6 +1275,23 @@
    "Scuttlecrab",
    "Krug",
    "Mama Beak"
+  ],
+  "carrousel": [
+   {
+    "item": "Infinity Edge",
+    "component": "B.F. Sword",
+    "shadow": false
+   },
+   {
+    "item": "Infinity Edge",
+    "component": "Sparring Gloves",
+    "shadow": false
+   },
+   {
+    "item": "Guinsoo's Rageblade",
+    "component": "Recurve Bow",
+    "shadow": false
+   }
   ]
  },
  {
@@ -770,7 +1309,8 @@
    "Alune"
   ],
   "carries": [
-   "Aphelios"
+   "Aphelios",
+   "Lillia"
   ],
   "mid": [
    "Leona",
@@ -778,6 +1318,23 @@
    "Xayah",
    "Kayle",
    "Sejuani"
+  ],
+  "carrousel": [
+   {
+    "item": "Guinsoo's Rageblade",
+    "component": "Recurve Bow",
+    "shadow": false
+   },
+   {
+    "item": "Guinsoo's Rageblade",
+    "component": "Needlessly Large Rod",
+    "shadow": false
+   },
+   {
+    "item": "Infinity Edge",
+    "component": "B.F. Sword",
+    "shadow": false
+   }
   ]
  },
  {
@@ -796,6 +1353,7 @@
   ],
   "carries": [
    "Caitlyn",
+   "Scuttlecrab",
    "Sivir"
   ],
   "mid": [
@@ -804,6 +1362,23 @@
    "Sejuani",
    "Scuttlecrab",
    "Vi"
+  ],
+  "carrousel": [
+   {
+    "item": "Guinsoo's Rageblade",
+    "component": "Recurve Bow",
+    "shadow": false
+   },
+   {
+    "item": "Guinsoo's Rageblade",
+    "component": "Needlessly Large Rod",
+    "shadow": false
+   },
+   {
+    "item": "Kraken's Fury",
+    "component": "Negatron Cloak",
+    "shadow": false
+   }
   ]
  },
  {
@@ -821,6 +1396,7 @@
    "Kennen"
   ],
   "carries": [
+   "Alistar",
    "Yunara",
    "Ezreal"
   ],
@@ -830,6 +1406,23 @@
    "Karma",
    "Leblanc",
    "Yunara"
+  ],
+  "carrousel": [
+   {
+    "item": "Spear of Shojin",
+    "component": "B.F. Sword",
+    "shadow": false
+   },
+   {
+    "item": "Spear of Shojin",
+    "component": "Tear of the Goddess",
+    "shadow": false
+   },
+   {
+    "item": "Striker's Flail",
+    "component": "Sparring Gloves",
+    "shadow": false
+   }
   ]
  },
  {
@@ -847,7 +1440,8 @@
    "Malphite"
   ],
   "carries": [
-   "Warwick"
+   "Warwick",
+   "Malphite"
   ],
   "mid": [
    "RekSai",
@@ -855,6 +1449,23 @@
    "Murkwolf",
    "Warwick",
    "Azir"
+  ],
+  "carrousel": [
+   {
+    "item": "Spear of Shojin",
+    "component": "B.F. Sword",
+    "shadow": false
+   },
+   {
+    "item": "Spear of Shojin",
+    "component": "Tear of the Goddess",
+    "shadow": false
+   },
+   {
+    "item": "Titan's Resolve",
+    "component": "Recurve Bow",
+    "shadow": false
+   }
   ]
  },
  {
@@ -872,7 +1483,8 @@
    "Shen"
   ],
   "carries": [
-   "Gromp"
+   "Gromp",
+   "Scuttlecrab"
   ],
   "mid": [
    "Cinderling",
@@ -880,6 +1492,23 @@
    "Murkwolf",
    "Scuttlecrab",
    "Krug"
+  ],
+  "carrousel": [
+   {
+    "item": "Deathblade",
+    "component": "B.F. Sword",
+    "shadow": false
+   },
+   {
+    "item": "Red Buff",
+    "component": "Recurve Bow",
+    "shadow": false
+   },
+   {
+    "item": "Last Whisper",
+    "component": "Sparring Gloves",
+    "shadow": false
+   }
   ]
  },
  {
@@ -896,6 +1525,7 @@
    "Taric"
   ],
   "carries": [
+   "Sentinel",
    "Brambleback"
   ],
   "mid": [
@@ -904,6 +1534,23 @@
    "Murkwolf",
    "Scuttlecrab",
    "Krug"
+  ],
+  "carrousel": [
+   {
+    "item": "Edge of Night",
+    "component": "B.F. Sword",
+    "shadow": false
+   },
+   {
+    "item": "Edge of Night",
+    "component": "Chain Vest",
+    "shadow": false
+   },
+   {
+    "item": "Quicksilver",
+    "component": "Sparring Gloves",
+    "shadow": false
+   }
   ]
  }
 ]
