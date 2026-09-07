@@ -667,19 +667,106 @@ def _fallback_opener(arch: dict, dmg: str) -> dict:
             "detail": f"Slam IE/Deathblade and hold AD on Cinderling/Camille; win-streak to Fast 8, then itemize {carry}."}
 
 
-def _classify_opener(arch: dict, catalog: dict) -> dict:
-    """Attach an early-game opener plan (curated where known, else data-driven)."""
+def _resolve_opener_units(catalog: dict, names: list) -> list:
+    """Resolve a list of unit display names to {name, iconUrl, cost} entries."""
+    out = []
+    for nm in names:
+        u = _unit_by_display_name(catalog, nm)
+        out.append({"name": (u or {}).get("name") or nm,
+                    "iconUrl": (u or {}).get("iconUrl"),
+                    "cost": (u or {}).get("cost")})
+    return out
+
+
+# tftactics.gg Set 18 meta comps (scraped): each has the mid/transition board
+# ("mid") we surface as the early build target, plus playstyle + leveling note.
+# Matched to our clustered archetypes by carry + core-unit overlap.
+_TFT_COMPS = None
+
+
+def _load_tft_comps() -> list:
+    global _TFT_COMPS
+    if _TFT_COMPS is not None:
+        return _TFT_COMPS
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tftactics_set18.json")
+    try:
+        with open(path) as f:
+            _TFT_COMPS = json.load(f)
+    except Exception as e:
+        print(f"[opener] tftactics dataset not loaded: {e}")
+        _TFT_COMPS = []
+    return _TFT_COMPS
+
+
+def _match_tft_comp(arch: dict) -> Optional[dict]:
+    """Best-matching tftactics comp by core-unit Jaccard + carry match."""
+    comps = _load_tft_comps()
+    if not comps:
+        return None
+    ours = {_norm_key(u["name"]) for u in arch.get("coreUnits", [])} | \
+           {_norm_key(u["name"]) for u in arch.get("flexUnits", [])}
+    if not ours:
+        return None
+    carry = _norm_key(arch.get("carryName") or "")
+    best, best_score, best_jac, best_carry = None, -1.0, 0.0, False
+    for c in comps:
+        cu = {_norm_key(x) for x in c.get("units", [])}
+        if not cu:
+            continue
+        jac = len(ours & cu) / (len(ours | cu) or 1)
+        carry_match = carry in {_norm_key(x) for x in c.get("carries", [])}
+        score = jac + (0.45 if carry_match else 0)
+        if score > best_score:
+            best, best_score, best_jac, best_carry = c, score, jac, carry_match
+    # Accept only confident matches so we don't attach a wrong transition board.
+    if best and ((best_carry and best_jac >= 0.2) or best_jac >= 0.4):
+        return best
+    return None
+
+
+def _opener_from_tft(comp: dict, arch: dict, catalog: dict) -> Optional[dict]:
+    """Build an opener from a matched tftactics comp's mid/transition board."""
+    units = _resolve_opener_units(catalog, comp.get("mid") or [])
+    if not units:
+        return None
+    desc = (comp.get("description") or "").strip()
+    play = (comp.get("playstyle") or "").strip()
+    # Enrich with curated per-carry nuance (item slams / opener synergies) if we
+    # have it for this carry.
     carry_norm = _norm_key(arch.get("carryName") or "")
-    dmg = _carry_dmg_type(arch, catalog)
+    cur = next((v for k, v in OPENER_LIBRARY.items() if _norm_key(k) == carry_norm), None)
+    detail = desc
+    if cur:
+        detail = f"{desc} {cur['detail']}".strip() if desc else cur["detail"]
+    return {
+        "label": comp.get("name") or "Early board",
+        "streak": (cur or {}).get("streak", "flex"),
+        "detail": detail,
+        "units": units,
+        "source": "tftactics",
+        "playstyle": play,
+    }
+
+
+def _classify_opener(arch: dict, catalog: dict) -> dict:
+    """Attach an early-game opener plan.
+
+    Priority: (1) the transition ("mid") board from the best-matching
+    tftactics.gg meta comp, enriched with curated nuance; (2) curated
+    per-carry opener; (3) generic data-driven fallback.
+    """
+    match = _match_tft_comp(arch)
+    if match:
+        op = _opener_from_tft(match, arch, catalog)
+        if op:
+            return op
+    carry_norm = _norm_key(arch.get("carryName") or "")
     entry = next((v for k, v in OPENER_LIBRARY.items() if _norm_key(k) == carry_norm), None)
     if not entry:
-        entry = _fallback_opener(arch, dmg)
-    units = []
-    for nm in entry.get("units", []):
-        u = _unit_by_display_name(catalog, nm)
-        units.append({"name": nm, "iconUrl": (u or {}).get("iconUrl"), "cost": (u or {}).get("cost")})
+        entry = _fallback_opener(arch, _carry_dmg_type(arch, catalog))
     return {"label": entry["label"], "streak": entry.get("streak", "flex"),
-            "detail": entry["detail"], "units": units}
+            "detail": entry["detail"], "units": _resolve_opener_units(catalog, entry.get("units", [])),
+            "source": "curated"}
 
 
 # ── Riot API ──────────────────────────────────────────────────────────────────

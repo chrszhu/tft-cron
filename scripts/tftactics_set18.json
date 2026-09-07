@@ -1,0 +1,909 @@
+[
+ {
+  "name": "Elderwood Spellweavers",
+  "playstyle": "Fast 8",
+  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+  "units": [
+   "Ornn",
+   "Yunara",
+   "Fiddlesticks",
+   "Ahri",
+   "Ezreal",
+   "Sett",
+   "Soraka",
+   "Gnar"
+  ],
+  "carries": [
+   "Ahri"
+  ],
+  "mid": [
+   "Karma",
+   "Rakan",
+   "Yorick",
+   "Yunara",
+   "Azir"
+  ]
+ },
+ {
+  "name": "Blossom Spellweavers",
+  "playstyle": "Fast 8",
+  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+  "units": [
+   "Karma",
+   "Yorick",
+   "Vi",
+   "Ahri",
+   "Sett",
+   "Sivir",
+   "Ashe",
+   "Gnar"
+  ],
+  "carries": [
+   "Ahri"
+  ],
+  "mid": [
+   "Karma",
+   "Rakan",
+   "Yorick",
+   "Yunara",
+   "Azir"
+  ]
+ },
+ {
+  "name": "Invoker Spellweavers",
+  "playstyle": "Fast 8",
+  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+  "units": [
+   "Karma",
+   "Pebbles",
+   "Krug",
+   "Sett",
+   "Ahri",
+   "Morgana",
+   "Sentinel",
+   "Taric"
+  ],
+  "carries": [
+   "Ahri"
+  ],
+  "mid": [
+   "Rakan",
+   "Yorick",
+   "Karma",
+   "Leblanc",
+   "Yunara"
+  ]
+ },
+ {
+  "name": "Coven Spellweavers",
+  "playstyle": "Fast 8",
+  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+  "units": [
+   "Elise",
+   "Cassiopeia",
+   "Diana",
+   "Fiddlesticks",
+   "Ahri",
+   "Morgana",
+   "Sentinel",
+   "Taric"
+  ],
+  "carries": [
+   "Ahri"
+  ],
+  "mid": [
+   "Camille",
+   "Rakan",
+   "Caitlyn",
+   "Elise",
+   "Cassiopeia"
+  ]
+ },
+ {
+  "name": "Spellweaver Defenders",
+  "playstyle": "Slow Roll (7)",
+  "description": "3-star units at level 7 by rolling your excess gold every round.",
+  "units": [
+   "Leona",
+   "Ornn",
+   "Shen",
+   "Cassiopeia",
+   "Fiddlesticks",
+   "Rammus",
+   "Lillia",
+   "Soraka"
+  ],
+  "carries": [
+   "Cassiopeia"
+  ],
+  "mid": [
+   "Leona",
+   "Ornn",
+   "Shen",
+   "Cassiopeia",
+   "Fiddlesticks"
+  ]
+ },
+ {
+  "name": "Invoker Vanguards",
+  "playstyle": "Fast 8",
+  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+  "units": [
+   "Rakan",
+   "Diana",
+   "Kogmaw",
+   "Vi",
+   "Morgana",
+   "Nidalee",
+   "Sentinel",
+   "Taric"
+  ],
+  "carries": [
+   "Morgana",
+   "Nidalee"
+  ],
+  "mid": [
+   "Camille",
+   "Rakan",
+   "Caitlyn",
+   "Elise",
+   "Kogmaw"
+  ]
+ },
+ {
+  "name": "Caustic Adaptors",
+  "playstyle": "Slow Roll (7)",
+  "description": "3-star units at level 7 by rolling your excess gold every round.",
+  "units": [
+   "Yorick",
+   "Kogmaw",
+   "Krug",
+   "Master Yi",
+   "Vi",
+   "Nidalee",
+   "Sett",
+   "Gnar"
+  ],
+  "carries": [
+   "Kogmaw",
+   "Master Yi"
+  ],
+  "mid": [
+   "Yorick",
+   "Karma",
+   "Gromp",
+   "Master Yi",
+   "Vi"
+  ]
+ },
+ {
+  "name": "Riftbeasts Reroll",
+  "playstyle": "Slow Roll (5)",
+  "description": "3-star units at level 5 by rolling your excess gold every round.",
+  "units": [
+   "Cinderling",
+   "Krug",
+   "Pebbles",
+   "Murkwolf",
+   "Scuttlecrab",
+   "Brambleback",
+   "Sentinel",
+   "Gnar"
+  ],
+  "carries": [
+   "Cinderling",
+   "Pebbles"
+  ],
+  "mid": [
+   "Pebbles",
+   "Cinderling",
+   "Murkwolf",
+   "Scuttlecrab",
+   "Krug"
+  ]
+ },
+ {
+  "name": "Fae Rapidfire",
+  "playstyle": "Slow Roll (5)",
+  "description": "3-star units at level 5 by rolling your excess gold every round.",
+  "units": [
+   "Ornn",
+   "Rakan",
+   "Varus",
+   "Xayah",
+   "Hecarim",
+   "Tristana",
+   "Amumu",
+   "Lillia"
+  ],
+  "carries": [
+   "Xayah"
+  ],
+  "mid": [
+   "Ornn",
+   "Rakan",
+   "Varus",
+   "Xayah",
+   "Shen"
+  ]
+ },
+ {
+  "name": "Elderwood Rapidfire",
+  "playstyle": "Fast 8",
+  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+  "units": [
+   "Ornn",
+   "Xayah",
+   "Alistar",
+   "Leblanc",
+   "Aphelios",
+   "Lillia",
+   "Alune",
+   "Gnar"
+  ],
+  "carries": [
+   "Aphelios"
+  ],
+  "mid": [
+   "Ornn",
+   "Varus",
+   "Xayah",
+   "Alistar",
+   "Shen"
+  ]
+ },
+ {
+  "name": "Primal Hunters",
+  "playstyle": "Fast 8",
+  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+  "units": [
+   "Shen",
+   "Tristana",
+   "Vi",
+   "Amumu",
+   "Lillia",
+   "Sivir",
+   "Ashe",
+   "Kennen"
+  ],
+  "carries": [
+   "Sivir"
+  ],
+  "mid": [
+   "Camille",
+   "Rakan",
+   "Caitlyn",
+   "Elise",
+   "Tristana"
+  ]
+ },
+ {
+  "name": "Primal Adaptors",
+  "playstyle": "Fast 8",
+  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+  "units": [
+   "Akali",
+   "Diana",
+   "Kogmaw",
+   "Master Yi",
+   "Vi",
+   "Amumu",
+   "Nidalee",
+   "Sentinel"
+  ],
+  "carries": [
+   "Nidalee"
+  ],
+  "mid": [
+   "Akali",
+   "Ornn",
+   "Varus",
+   "Shen",
+   "Master Yi"
+  ]
+ },
+ {
+  "name": "Juggernaut Summoners",
+  "playstyle": "Fast 8",
+  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+  "units": [
+   "Yorick",
+   "Azir",
+   "Fiddlesticks",
+   "Amumu",
+   "Malphite",
+   "Soraka",
+   "Zyra",
+   "Kennen"
+  ],
+  "carries": [
+   "Zyra"
+  ],
+  "mid": [
+   "Kobuko",
+   "RekSai",
+   "Pebbles",
+   "Veigar",
+   "Teemo"
+  ]
+ },
+ {
+  "name": "Flora Executioners",
+  "playstyle": "Fast 8",
+  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+  "units": [
+   "Yorick",
+   "Azir",
+   "Fiddlesticks",
+   "Amumu",
+   "Malphite",
+   "Soraka",
+   "Zyra",
+   "Kennen"
+  ],
+  "carries": [
+   "Soraka"
+  ],
+  "mid": [
+   "Kobuko",
+   "RekSai",
+   "Pebbles",
+   "Veigar",
+   "Teemo"
+  ]
+ },
+ {
+  "name": "Fae Hunters",
+  "playstyle": "Slow Roll (7)",
+  "description": "3-star units at level 7 by rolling your excess gold every round.",
+  "units": [
+   "Rakan",
+   "Xayah",
+   "Rammus",
+   "Tristana",
+   "Vi",
+   "Sivir",
+   "Lillia",
+   "Gnar"
+  ],
+  "carries": [
+   "Tristana",
+   "Sivir"
+  ],
+  "mid": [
+   "Kobuko",
+   "Rakan",
+   "Xayah",
+   "Rammus",
+   "Tristana"
+  ]
+ },
+ {
+  "name": "Sprykin Hunters",
+  "playstyle": "Slow Roll (7)",
+  "description": "3-star units at level 7 by rolling your excess gold every round.",
+  "units": [
+   "Kobuko",
+   "Teemo",
+   "Rammus",
+   "Tristana",
+   "Sentinel",
+   "Lillia",
+   "Ashe",
+   "Gnar"
+  ],
+  "carries": [
+   "Tristana"
+  ],
+  "mid": [
+   "Kobuko",
+   "Veigar",
+   "Teemo",
+   "Rammus",
+   "Tristana"
+  ]
+ },
+ {
+  "name": "Sprykin Invokers",
+  "playstyle": "Slow Roll (6)",
+  "description": "3-star units at level 6 by rolling your excess gold every round.",
+  "units": [
+   "Kobuko",
+   "Teemo",
+   "Rammus",
+   "Tristana",
+   "Sentinel",
+   "Lillia",
+   "Gnar",
+   "Taric"
+  ],
+  "carries": [
+   "Teemo"
+  ],
+  "mid": [
+   "Kobuko",
+   "Pebbles",
+   "Shen",
+   "Teemo",
+   "Rammus"
+  ]
+ },
+ {
+  "name": "Rivals Khazix",
+  "playstyle": "Slow Roll (7)",
+  "description": "3-star units at level 7 by rolling your excess gold every round.",
+  "units": [
+   "Diana",
+   "Hecarim",
+   "Mama Beak",
+   "Khazix",
+   "Aphelios",
+   "Brambleback",
+   "Sentinel",
+   "Taric"
+  ],
+  "carries": [
+   "Khazix"
+  ],
+  "mid": [
+   "Akali",
+   "Gromp",
+   "Murkwolf",
+   "Scuttlecrab",
+   "Khazix"
+  ]
+ },
+ {
+  "name": "Lunar Rapidfire",
+  "playstyle": "Fast 8",
+  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+  "units": [
+   "Diana",
+   "Hecarim",
+   "Mama Beak",
+   "Aphelios",
+   "Brambleback",
+   "Sentinel",
+   "Zyra",
+   "Taric"
+  ],
+  "carries": [
+   "Aphelios"
+  ],
+  "mid": [
+   "Ornn",
+   "Rakan",
+   "Varus",
+   "Xayah",
+   "Hecarim"
+  ]
+ },
+ {
+  "name": "Solar Rapidfire",
+  "playstyle": "Slow Roll (6)",
+  "description": "3-star units at level 6 by rolling your excess gold every round.",
+  "units": [
+   "Leona",
+   "Varus",
+   "Kayle",
+   "Sejuani",
+   "Shen",
+   "Diana",
+   "Aphelios",
+   "Alune"
+  ],
+  "carries": [
+   "Kayle"
+  ],
+  "mid": [
+   "Leona",
+   "Varus",
+   "Kayle",
+   "Sejuani",
+   "Shen"
+  ]
+ },
+ {
+  "name": "Coven Invokers",
+  "playstyle": "Fast 8",
+  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+  "units": [
+   "Pebbles",
+   "Diana",
+   "Hecarim",
+   "Kogmaw",
+   "Brambleback",
+   "Morgana",
+   "Sentinel",
+   "Taric"
+  ],
+  "carries": [
+   "Morgana"
+  ],
+  "mid": [
+   "Camille",
+   "Rakan",
+   "Caitlyn",
+   "Elise",
+   "Cassiopeia"
+  ]
+ },
+ {
+  "name": "Unrivaled",
+  "playstyle": "Slow Roll (7)",
+  "description": "3-star units at level 7 by rolling your excess gold every round.",
+  "units": [
+   "Leblanc",
+   "Diana",
+   "Hecarim",
+   "Khazix",
+   "Rengar",
+   "Aphelios",
+   "Ezreal",
+   "Alune"
+  ],
+  "carries": [
+   "Khazix",
+   "Rengar"
+  ],
+  "mid": [
+   "Ornn",
+   "Alistar",
+   "Leblanc",
+   "Khazix",
+   "Rengar"
+  ]
+ },
+ {
+  "name": "Rivals Rengar",
+  "playstyle": "Slow Roll (7)",
+  "description": "3-star units at level 7 by rolling your excess gold every round.",
+  "units": [
+   "Diana",
+   "Hecarim",
+   "Mama Beak",
+   "Rengar",
+   "Aphelios",
+   "Brambleback",
+   "Sentinel",
+   "Taric"
+  ],
+  "carries": [
+   "Rengar"
+  ],
+  "mid": [
+   "Akali",
+   "Gromp",
+   "Murkwolf",
+   "Scuttlecrab",
+   "Rengar"
+  ]
+ },
+ {
+  "name": "Fae Spellweavers",
+  "playstyle": "Fast 8",
+  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+  "units": [
+   "Karma",
+   "Rakan",
+   "Yorick",
+   "Diana",
+   "Fiddlesticks",
+   "Ahri",
+   "Lillia",
+   "Alune"
+  ],
+  "carries": [
+   "Ahri"
+  ],
+  "mid": [
+   "Karma",
+   "Rakan",
+   "Yorick",
+   "Yunara",
+   "Azir"
+  ]
+ },
+ {
+  "name": "Elderwood Executioners",
+  "playstyle": "Fast 9",
+  "description": "Level 9 early in Stage 5 to find 5 cost units. Need long win/lose streaks or econ augments.",
+  "units": [
+   "Alistar",
+   "Amumu",
+   "Ezreal",
+   "Draven",
+   "Gnar",
+   "Ivern",
+   "Kennen",
+   "Maokai",
+   "Taric"
+  ],
+  "carries": [
+   "Draven"
+  ],
+  "mid": [
+   "Ornn",
+   "Varus",
+   "Xayah",
+   "Alistar",
+   "Shen"
+  ]
+ },
+ {
+  "name": "Elderwood",
+  "playstyle": "Standard",
+  "description": "Flexible strategy focused around a healthy economy while still keeping up in levels. General rules are Level 6 by 3-2, Level 7 by 4-1, and Level 8 by 5-1.",
+  "units": [
+   "Ornn",
+   "Xayah",
+   "Alistar",
+   "Leblanc",
+   "Hecarim",
+   "Ezreal",
+   "Soraka",
+   "Gnar"
+  ],
+  "carries": [
+   "Ezreal"
+  ],
+  "mid": [
+   "Ornn",
+   "Xayah",
+   "Alistar",
+   "Leblanc",
+   "Hecarim"
+  ]
+ },
+ {
+  "name": "Apex Predator",
+  "playstyle": "Fast 9",
+  "description": "Level 9 early in Stage 5 to find 5 cost units. Need long win/lose streaks or econ augments.",
+  "units": [
+   "Pebbles",
+   "Murkwolf",
+   "Krug",
+   "Brambleback",
+   "Sentinel",
+   "Elder Dragon",
+   "Gnar",
+   "Taric"
+  ],
+  "carries": [
+   "Elder Dragon"
+  ],
+  "mid": [
+   "Cinderling",
+   "Pebbles",
+   "Gromp",
+   "Scuttlecrab",
+   "Krug"
+  ]
+ },
+ {
+  "name": "Consuming Flora",
+  "playstyle": "Slow Roll (5)",
+  "description": "3-star units at level 5 by rolling your excess gold every round.",
+  "units": [
+   "Kobuko",
+   "RekSai",
+   "Veigar",
+   "Teemo",
+   "Fiddlesticks",
+   "Rammus",
+   "Sett",
+   "Gnar"
+  ],
+  "carries": [
+   "Veigar"
+  ],
+  "mid": [
+   "Kobuko",
+   "RekSai",
+   "Veigar",
+   "Teemo",
+   "Fiddlesticks"
+  ]
+ },
+ {
+  "name": "Blackthorn Sprykin",
+  "playstyle": "Slow Roll (5)",
+  "description": "3-star units at level 5 by rolling your excess gold every round.",
+  "units": [
+   "Kobuko",
+   "RekSai",
+   "Veigar",
+   "Fiddlesticks",
+   "Rammus",
+   "Tristana",
+   "Sett",
+   "Gnar"
+  ],
+  "carries": [
+   "Veigar"
+  ],
+  "mid": [
+   "Kobuko",
+   "RekSai",
+   "Veigar",
+   "Leblanc",
+   "Rammus"
+  ]
+ },
+ {
+  "name": "Riftbeast Summoners",
+  "playstyle": "Slow Roll (7)",
+  "description": "3-star units at level 7 by rolling your excess gold every round.",
+  "units": [
+   "Yorick",
+   "Diana",
+   "Krug",
+   "Mama Beak",
+   "Sentinel",
+   "Aphelios",
+   "Sett",
+   "Zyra"
+  ],
+  "carries": [
+   "Mama Beak"
+  ],
+  "mid": [
+   "Cinderling",
+   "Pebbles",
+   "Scuttlecrab",
+   "Krug",
+   "Mama Beak"
+  ]
+ },
+ {
+  "name": "Eclipse Rapidfire",
+  "playstyle": "Fast 8",
+  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+  "units": [
+   "Leona",
+   "Rakan",
+   "Kayle",
+   "Sejuani",
+   "Diana",
+   "Aphelios",
+   "Lillia",
+   "Alune"
+  ],
+  "carries": [
+   "Aphelios"
+  ],
+  "mid": [
+   "Leona",
+   "Rakan",
+   "Xayah",
+   "Kayle",
+   "Sejuani"
+  ]
+ },
+ {
+  "name": "Juggernaut Hunters",
+  "playstyle": "Slow Roll (6)",
+  "description": "3-star units at level 6 by rolling your excess gold every round.",
+  "units": [
+   "Rakan",
+   "Caitlyn",
+   "Scuttlecrab",
+   "Sejuani",
+   "Tristana",
+   "Vi",
+   "Sivir",
+   "Ashe"
+  ],
+  "carries": [
+   "Caitlyn",
+   "Sivir"
+  ],
+  "mid": [
+   "Rakan",
+   "Caitlyn",
+   "Sejuani",
+   "Scuttlecrab",
+   "Vi"
+  ]
+ },
+ {
+  "name": "Blossom Executioners",
+  "playstyle": "Slow Roll (6)",
+  "description": "3-star units at level 6 by rolling your excess gold every round.",
+  "units": [
+   "Alistar",
+   "Leblanc",
+   "Yunara",
+   "Ahri",
+   "Ezreal",
+   "Sett",
+   "Soraka",
+   "Kennen"
+  ],
+  "carries": [
+   "Yunara",
+   "Ezreal"
+  ],
+  "mid": [
+   "Rakan",
+   "Yorick",
+   "Karma",
+   "Leblanc",
+   "Yunara"
+  ]
+ },
+ {
+  "name": "Blackthorn Ravagers",
+  "playstyle": "Slow Roll (6)",
+  "description": "3-star units at level 6 by rolling your excess gold every round.",
+  "units": [
+   "RekSai",
+   "Murkwolf",
+   "Warwick",
+   "Azir",
+   "Diana",
+   "Krug",
+   "Brambleback",
+   "Malphite"
+  ],
+  "carries": [
+   "Warwick"
+  ],
+  "mid": [
+   "RekSai",
+   "Veigar",
+   "Murkwolf",
+   "Warwick",
+   "Azir"
+  ]
+ },
+ {
+  "name": "Solar Riftbeasts",
+  "playstyle": "Slow Roll (6)",
+  "description": "3-star units at level 6 by rolling your excess gold every round.",
+  "units": [
+   "Akali",
+   "Leona",
+   "Gromp",
+   "Kayle",
+   "Murkwolf",
+   "Scuttlecrab",
+   "Sejuani",
+   "Shen"
+  ],
+  "carries": [
+   "Gromp"
+  ],
+  "mid": [
+   "Cinderling",
+   "Gromp",
+   "Murkwolf",
+   "Scuttlecrab",
+   "Krug"
+  ]
+ },
+ {
+  "name": "Riftbeast Ravagers",
+  "playstyle": "Fast 8",
+  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+  "units": [
+   "Pebbles",
+   "Murkwolf",
+   "Krug",
+   "Sentinel",
+   "Brambleback",
+   "Elder Dragon",
+   "Taric"
+  ],
+  "carries": [
+   "Brambleback"
+  ],
+  "mid": [
+   "Cinderling",
+   "Pebbles",
+   "Murkwolf",
+   "Scuttlecrab",
+   "Krug"
+  ]
+ }
+]
