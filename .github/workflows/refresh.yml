@@ -21,9 +21,10 @@ on:
         default: ""
 
   schedule:
-    # Light refresh every 6 hours — keeps the snapshot fresh (default target).
-    - cron: "0 */6 * * *"
-    # Deep weekly crawl (Sunday 08:00 UTC) — large high-elo sample.
+    # Weekly refresh only (Sunday 08:00 UTC). Previously ran every 6 hours (4×/day),
+    # which — combined with re-upserting the whole accumulator each checkpoint —
+    # drove the bulk of DB RU usage. Weekly is plenty for a meta snapshot; use the
+    # manual "Run workflow" button for an on-demand refresh between runs.
     - cron: "0 8 * * 0"
 
   repository_dispatch:

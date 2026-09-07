@@ -199,6 +199,13 @@ def _ensure_schema():
                 computed_at  BIGINT  NOT NULL,
                 PRIMARY KEY (platform, tier, puuid, set_number)
             )""",
+            # Reads filter by (platform, tier, set_number) WITHOUT puuid, so the
+            # PK can't serve them and every read full-scans the table (tens of
+            # MiB, growing with the data → the "exponential" RU curve). This
+            # secondary index turns those into cheap range scans.
+            "CREATE INDEX IF NOT EXISTS idx_hist_set ON historical_insights (platform, tier, set_number)",
+            # Same rationale for the current-set boards read on challenger_players.
+            "CREATE INDEX IF NOT EXISTS idx_challengers_set ON challenger_players (platform, tier, set_number)",
             # Per-archetype full board list for on-demand "load more" paging.
             # One row per board; PK prefix (…, arch_id) makes offset/limit an
             # indexed range scan (cheap RU) instead of a JSONB scan.
@@ -2201,36 +2208,47 @@ def _backfill_set(platform: str, target_set: int, tier: str = "all"):
                 seen_matches: set[str] = set()
 
                 processed_seeds: set[str] = set(done_puuids)
+                flushed_state: dict[str, int] = {}
 
                 def _flush(acc_map: dict[str, dict]) -> int:
-                    written = 0
+                    """Delta + batched upsert of changed players, plus a seed-progress
+                    checkpoint. Only rows whose board count changed since the last
+                    flush are written (avoids re-upserting the whole accumulator each
+                    checkpoint — the main RU sink)."""
+                    from psycopg2.extras import execute_values
+                    rows = []
                     for pid, a in acc_map.items():
-                        if a["matchCount"] == 0:
+                        mc = a["matchCount"]
+                        if mc == 0 or flushed_state.get(pid) == mc:
                             continue
                         ins = _derive_insights(a, catalog)
                         ins["_raw"] = True
                         ins["patchStartTs"] = start_ts
-                        _execute(
-                            """INSERT INTO historical_insights
-                                (platform, tier, puuid, set_number, summoner_name, insights, computed_at)
-                               VALUES (%s, %s, %s, %s, %s, %s, %s)
-                               ON CONFLICT (platform, tier, puuid, set_number) DO UPDATE SET
-                                 insights = EXCLUDED.insights,
-                                 computed_at = EXCLUDED.computed_at""",
-                            [platform, run_tier, pid, target_set,
-                             names.get(pid), json.dumps(ins), int(time.time() * 1000)],
+                        rows.append((platform, run_tier, pid, target_set,
+                                     names.get(pid), json.dumps(ins), int(time.time() * 1000)))
+                        flushed_state[pid] = mc
+                    conn = _get_conn()
+                    with conn.cursor() as cur:
+                        for i in range(0, len(rows), 500):
+                            execute_values(
+                                cur,
+                                "INSERT INTO historical_insights "
+                                "(platform, tier, puuid, set_number, summoner_name, insights, computed_at) "
+                                "VALUES %s ON CONFLICT (platform, tier, puuid, set_number) DO UPDATE SET "
+                                "insights = EXCLUDED.insights, computed_at = EXCLUDED.computed_at",
+                                rows[i:i + 500],
+                            )
+                        # Persist seed progress so a timeout resumes instead of restarting.
+                        cur.execute(
+                            "INSERT INTO meta_cache (cache_key, payload, computed_at) VALUES (%s,%s,%s) "
+                            "ON CONFLICT (cache_key) DO UPDATE SET payload=EXCLUDED.payload, "
+                            "computed_at=EXCLUDED.computed_at",
+                            [seed_key, json.dumps(sorted(processed_seeds)), int(time.time() * 1000)],
                         )
-                        written += 1
-                    # Persist seed progress so a timeout resumes instead of restarting.
-                    _execute(
-                        "INSERT INTO meta_cache (cache_key, payload, computed_at) VALUES (%s,%s,%s) "
-                        "ON CONFLICT (cache_key) DO UPDATE SET payload=EXCLUDED.payload, "
-                        "computed_at=EXCLUDED.computed_at",
-                        [seed_key, json.dumps(sorted(processed_seeds)), int(time.time() * 1000)],
-                    )
-                    print(f"\n[backfill]   flushed {written} players "
+                    conn.commit()
+                    print(f"\n[backfill]   flushed {len(rows)} players "
                           f"({len(processed_seeds)} seeds done)")
-                    return written
+                    return len(rows)
 
                 for i, row in enumerate(rows):
                     # Flush at the TOP of the iteration. Putting it at the bottom
@@ -2417,27 +2435,46 @@ def _seed_current_set(platform: str, active_set: int, tier: str = "all"):
     def _boards() -> int:
         return sum(a["matchCount"] for a in accs.values())
 
+    flushed_state: dict[str, int] = {}
+
     def _flush() -> int:
         """Persist accumulated players to historical_insights so a long crawl is
-        checkpointed and survives interruption."""
-        written = 0
+        checkpointed and survives interruption.
+
+        Delta + batched: only players whose board count changed since the last
+        flush are written, in one batched multi-row upsert. Previously this
+        re-upserted the ENTIRE accumulator on every checkpoint, which (with a
+        6-hourly cron) produced hundreds of thousands of redundant writes — the
+        dominant RU cost. Correctness is preserved: the final _flush after the
+        crawl writes every player's final state.
+        """
+        from psycopg2.extras import execute_values
+        rows = []
         for ppid, a in accs.items():
-            if a["matchCount"] == 0:
+            mc = a["matchCount"]
+            if mc == 0 or flushed_state.get(ppid) == mc:
                 continue
             ins = _derive_insights(a, catalog)
             ins["_raw"] = True
             ins["patchStartTs"] = start_ts
-            _execute(
-                """INSERT INTO historical_insights
-                    (platform, tier, puuid, set_number, summoner_name, insights, computed_at)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s)
-                   ON CONFLICT (platform, tier, puuid, set_number) DO UPDATE SET
-                     insights = EXCLUDED.insights, computed_at = EXCLUDED.computed_at""",
-                [platform, "challenger", ppid, active_set,
-                 names.get(ppid), json.dumps(ins), int(time.time() * 1000)],
-            )
-            written += 1
-        return written
+            rows.append((platform, "challenger", ppid, active_set,
+                         names.get(ppid), json.dumps(ins), int(time.time() * 1000)))
+            flushed_state[ppid] = mc
+        if not rows:
+            return 0
+        conn = _get_conn()
+        with conn.cursor() as cur:
+            for i in range(0, len(rows), 500):
+                execute_values(
+                    cur,
+                    "INSERT INTO historical_insights "
+                    "(platform, tier, puuid, set_number, summoner_name, insights, computed_at) "
+                    "VALUES %s ON CONFLICT (platform, tier, puuid, set_number) DO UPDATE SET "
+                    "insights = EXCLUDED.insights, computed_at = EXCLUDED.computed_at",
+                    rows[i:i + 500],
+                )
+        conn.commit()
+        return len(rows)
 
     while queue and _boards() < target_boards:
         if processed > 0 and processed % 10 == 0:
