@@ -322,12 +322,77 @@ def _fetch_catalog(active_set: int) -> dict:
             augments[api] = {"name": name, "iconUrl": _normalize_icon(icon), "tier": tier}
             augments[api.lower()] = {"name": name, "iconUrl": _normalize_icon(icon), "tier": tier}
 
+    team_planner = _fetch_team_planner(active_set)
+
     print(f"[catalog] Loaded {len(traits)} traits, {len(units)//2} units, {len(items)} items")
     return {
         "items": items, "traits": traits, "units": units, "augments": augments,
         "itemRoles": item_roles, "unitRanges": unit_ranges,
         "itemComponents": item_components,
+        "teamPlanner": team_planner,
+        "activeSet": active_set,
     }
+
+
+# CommunityDragon team-planner data: authoritative per-set champion codes used
+# by the in-game Team Planner import ("Copy team code" feature).
+TEAM_PLANNER_URL = (
+    "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/"
+    "global/default/v1/tftchampions-teamplanner.json"
+)
+
+
+def _fetch_team_planner(active_set: int) -> dict:
+    """Build {norm(displayName) → team_planner_code} for the active set.
+
+    The in-game Team Planner code is built from these per-champion codes; see
+    _team_code(). Returns {} if the set isn't published yet on CDragon.
+    """
+    try:
+        resp = requests.get(TEAM_PLANNER_URL, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        print(f"[teamplanner] fetch failed ({e}); team codes disabled")
+        return {}
+    entries = data.get(f"TFTSet{active_set}") or []
+    code_by_name: dict = {}
+    for it in entries:
+        name = it.get("display_name") or ""
+        code = it.get("team_planner_code")
+        if name and isinstance(code, int):
+            # First-wins so the canonical variant keeps the slot (e.g. Akali).
+            code_by_name.setdefault(_norm_key(name), code)
+    print(f"[teamplanner] {len(code_by_name)} champion codes for set {active_set}")
+    return code_by_name
+
+
+def _team_code(unit_names: list, team_planner: dict, active_set: int) -> Optional[str]:
+    """Encode a comp into an in-game Team Planner code.
+
+    Format (sets >15): "02" + <3-hex-digit code per champ> + "000" padding to
+    10 slots + "TFTSetN", exactly 40 chars. Champions with no known code are
+    skipped; blanks are pushed to the end. Returns None if unusable.
+    """
+    if not team_planner:
+        return None
+    segs: list = []
+    seen: set = set()
+    for nm in unit_names:
+        key = _norm_key(nm)
+        if key in seen:
+            continue
+        code = team_planner.get(key)
+        if code is None:
+            continue
+        seen.add(key)
+        segs.append(format(code, "03x"))
+        if len(segs) >= 10:
+            break
+    if not segs:
+        return None
+    code = "02" + "".join(segs) + "000" * (10 - len(segs)) + f"TFTSet{active_set}"
+    return code if len(code) == 40 else None
 
 
 def _normalize_icon(path: str) -> Optional[str]:
@@ -1349,6 +1414,15 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
             # Openers are curated for the live set only; skip on historical sets.
             if with_opener:
                 arch["opener"] = _classify_opener(arch, catalog)
+                # In-game Team Planner code ("Copy team code") — live set only,
+                # since CDragon only publishes codes for the current set.
+                tc = _team_code(
+                    [u["name"] for u in board_units],
+                    catalog.get("teamPlanner") or {},
+                    catalog.get("activeSet") or 0,
+                )
+                if tc:
+                    arch["teamCode"] = tc
             # Carousel priority: aggregate the components a comp's item holders
             # need across their BIS items, ranked by how many are required.
             arch["carouselPriority"] = _compute_carousel_priority(core_units, catalog)
