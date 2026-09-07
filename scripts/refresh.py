@@ -1482,7 +1482,20 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
         results.append(arch)
 
     results.sort(key=lambda x: -x["boardCount"])
-    return results[:30]
+    top = results[:30]
+    # Ensure archetype ids are unique within a run. The id is a hash of the core
+    # unit set, so two distinct clusters that share identical core units (they
+    # differ only in flex membership) collide — which violates the
+    # archetype_boards primary key (platform, tier, set, arch_id, board_idx) and
+    # crashes the whole run. Disambiguate deterministically after the final sort.
+    seen_ids: dict = {}
+    for arch in top:
+        base = arch.get("id") or ""
+        n = seen_ids.get(base, 0)
+        if n:
+            arch["id"] = f"{base}-{n}"
+        seen_ids[base] = n + 1
+    return top
 
 
 def _store_archetype_boards(platform: str, tier: str, set_num: int, archetypes: list):
@@ -1493,12 +1506,19 @@ def _store_archetype_boards(platform: str, tier: str, set_num: int, archetypes: 
     from psycopg2.extras import execute_values
 
     all_rows = []
+    seen_keys: set = set()
     for arch in archetypes:
         arch_id = arch.get("id")
         boards = arch.get("_allBoards") or []
         if not arch_id or not boards:
             continue
         for idx, b in enumerate(boards):
+            # Guard against duplicate (arch_id, board_idx) keys within the batch
+            # so a single collision can't abort the whole insert.
+            key = (arch_id, idx)
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
             all_rows.append((platform, tier, set_num, arch_id, idx,
                              b.get("placement"), json.dumps(b)))
 
@@ -1509,11 +1529,14 @@ def _store_archetype_boards(platform: str, tier: str, set_num: int, archetypes: 
             [platform, tier, set_num],
         )
         # Batched multi-row inserts — one round-trip per chunk (vs. per row).
+        # ON CONFLICT DO NOTHING is a belt-and-suspenders guard against any
+        # residual key collision so the run can't crash on a duplicate.
         for i in range(0, len(all_rows), 500):
             execute_values(
                 cur,
                 "INSERT INTO archetype_boards "
-                "(platform, tier, set_number, arch_id, board_idx, placement, board) VALUES %s",
+                "(platform, tier, set_number, arch_id, board_idx, placement, board) VALUES %s "
+                "ON CONFLICT (platform, tier, set_number, arch_id, board_idx) DO NOTHING",
                 all_rows[i:i + 500],
             )
     conn.commit()

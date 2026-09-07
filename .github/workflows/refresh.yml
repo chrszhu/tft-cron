@@ -118,16 +118,32 @@ jobs:
             -H "Priority: high" -H "Tags: key,warning" \
             -d "Your Riot API key has expired. Update RIOT_API_KEY in GitHub Secrets and re-run."
 
-      - name: Retry if timed out (not key expiry)
+      # Retry on failure, but CAPPED so a deterministic crash can't loop forever
+      # (it previously re-dispatched on every failure → endless retries). The
+      # attempt counter rides along in client_payload; we stop after MAX_ATTEMPTS
+      # and ping ntfy so a persistent failure surfaces instead of burning minutes.
+      - name: Retry if failed (capped, not key expiry)
         if: |
           needs.seed-current.outputs.key_expired != 'true' &&
           needs.seed-current.result == 'failure'
         env:
           ORCHESTRATOR_PAT: ${{ secrets.ORCHESTRATOR_PAT }}
+          NTFY_TOPIC: ${{ vars.NTFY_TOPIC || 'tft-cron-alert' }}
+          ATTEMPT: ${{ github.event.client_payload.attempt || 1 }}
+          MAX_ATTEMPTS: "3"
         run: |
+          if [ "${ATTEMPT}" -ge "${MAX_ATTEMPTS}" ]; then
+            echo "Reached max attempts (${ATTEMPT}/${MAX_ATTEMPTS}); giving up."
+            curl -s -X POST "https://ntfy.sh/${NTFY_TOPIC}" \
+              -H "Title: TFT Cron — Refresh Failing" \
+              -H "Priority: high" -H "Tags: rotating_light" \
+              -d "Refresh failed ${MAX_ATTEMPTS}x in a row (not a key issue). Check the Actions logs." || true
+            exit 0
+          fi
+          NEXT=$((ATTEMPT + 1))
           curl -s -X POST \
             -H "Authorization: token $ORCHESTRATOR_PAT" \
             -H "Accept: application/vnd.github+json" \
             https://api.github.com/repos/chrszhu/tft-cron/dispatches \
-            -d "{\"event_type\":\"continue-refresh\",\"client_payload\":{\"region\":\"$REGION\",\"tier\":\"$TIER\"}}"
-          echo "Next run queued."
+            -d "{\"event_type\":\"continue-refresh\",\"client_payload\":{\"region\":\"$REGION\",\"tier\":\"$TIER\",\"attempt\":${NEXT}}}"
+          echo "Retry ${NEXT}/${MAX_ATTEMPTS} queued."
