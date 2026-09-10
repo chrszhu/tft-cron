@@ -80,9 +80,25 @@ jobs:
         env:
           APP_REPO_PAT: ${{ secrets.APP_REPO_PAT }}
           APP_REPO:     ${{ vars.APP_REPO }}
+          NTFY_TOPIC:   ${{ vars.NTFY_TOPIC || 'tft-cron-alert' }}
         run: |
           SNAPSHOTS=(public/data/snapshot_*.json public/data/sets_*.json)
           [ -f "${SNAPSHOTS[0]}" ] || { echo "No snapshot — skipping."; exit 0; }
+          # ── Guardrail: refuse to ship a degraded live snapshot ───────────────
+          # Catches regressions (like the with_opener bug) that would silently
+          # strip team codes / openers. If the current-set snapshot is degraded we
+          # keep the last-good snapshot in place and alert instead of overwriting.
+          LIVE=public/data/snapshot_na1_challenger.json
+          if [ -f "$LIVE" ]; then
+            if ! python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); arch=(d.get("winningBoards") or d).get("archetypes") or d.get("archetypes") or []; n=len(arch); tc=sum(1 for a in arch if a.get("teamCode")); op=sum(1 for a in arch if a.get("opener")); print(f"[validate] archetypes={n} teamCode={tc} opener={op}"); sys.exit(0 if (n>0 and tc>=0.8*n and op>=0.8*n) else 3)' "$LIVE"; then
+              curl -s -X POST "https://ntfy.sh/${NTFY_TOPIC}" \
+                -H "Title: TFT Cron — Degraded Snapshot (not pushed)" \
+                -H "Priority: high" -H "Tags: warning" \
+                -d "Live snapshot was missing team codes/openers — kept last-good and skipped push. Check refresh.py enrichment." || true
+              echo "Degraded snapshot; skipping push."
+              exit 0
+            fi
+          fi
           git clone --depth 1 \
             "https://x-access-token:${APP_REPO_PAT}@github.com/${APP_REPO}.git" _app
           mkdir -p _app/public/data
