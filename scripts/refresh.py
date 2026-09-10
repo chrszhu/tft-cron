@@ -825,31 +825,39 @@ def _carousel_from_tft(comp: dict, catalog: dict) -> Optional[list]:
 
     tftactics weights carousel priority toward the *key items* a comp wants
     (the carry/tank BIS), not the most-frequently-seen components. Its
-    ``carrousel`` field is an ordered list of {item, component} pairs; we keep
-    that priority order and count how many BIS items need each component.
+    ``carrousel`` field is an ordered list of {item, component} pairs. We keep
+    that priority order and, tftactics-style, surface each COMPONENT to grab
+    together with the full ITEM it builds into (rendered as a mini badge).
+
+    Output entries: {name, iconUrl, buildsInto: {name, iconUrl}}. Entries are
+    deduped by (component, item) so the same pairing isn't shown twice; a
+    component that builds two different items appears once per target.
     """
     car = (comp or {}).get("carrousel") or []
     if not car:
         return None
-    # Component display-name → icon lookup from the catalog items map.
+    # Item display-name → icon lookup from the catalog items map (covers both
+    # components and full items — they're all "items" in CDragon).
     icons: dict = {}
     for v in (catalog.get("items") or {}).values():
         nm = (v or {}).get("name")
         if nm:
             icons.setdefault(_norm_key(nm), (v or {}).get("iconUrl"))
-    order: list = []
-    tally: dict = {}
+    out: list = []
+    seen: set = set()
     for entry in car:
         cname = (entry or {}).get("component")
         if not cname:
             continue
-        k = _norm_key(cname)
-        if k not in tally:
-            order.append(cname)
-            tally[k] = 0
-        tally[k] += 1
-    out = [{"name": nm, "iconUrl": icons.get(_norm_key(nm)), "count": tally[_norm_key(nm)]}
-           for nm in order]
+        iname = (entry or {}).get("item") or ""
+        key = (_norm_key(cname), _norm_key(iname))
+        if key in seen:
+            continue
+        seen.add(key)
+        row = {"name": cname, "iconUrl": icons.get(_norm_key(cname))}
+        if iname:
+            row["buildsInto"] = {"name": iname, "iconUrl": icons.get(_norm_key(iname))}
+        out.append(row)
     return out or None
 
 
