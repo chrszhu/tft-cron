@@ -1551,16 +1551,24 @@ def _store_archetype_boards(platform: str, tier: str, set_num: int, archetypes: 
 
 
 def _cache_archetypes(platform: str, tier: str, active_set: int, target_set: int | None = None,
-                      catalog: dict | None = None):
+                      catalog: dict | None = None, with_opener: bool | None = None):
     """
     Compute and cache comp archetypes for a given set.
 
     For the active set, reads from challenger_players.
     For historical sets, reads from historical_insights (which may contain
     data pooled from multiple tiers — all stored as 'challenger').
+
+    ``with_opener`` controls whether live-set enrichments (opener plan, in-game
+    team code, tftactics carousel) are computed. It defaults to "not historical",
+    but the current-set SEED reads from historical_insights (passing active_set=0)
+    while still being the live set, so it must pass with_opener=True explicitly —
+    otherwise the enrichments (and the Copy-team-code button) silently vanish.
     """
     set_num = target_set if target_set is not None else active_set
     is_historical = (set_num != active_set)
+    if with_opener is None:
+        with_opener = not is_historical
 
     now = int(time.time() * 1000)
     patch_start = int(time.time()) - PATCH_WINDOW_DAYS * 86400
@@ -1593,7 +1601,7 @@ def _cache_archetypes(platform: str, tier: str, active_set: int, target_set: int
 
     if catalog is None:
         catalog = _fetch_catalog(set_num)
-    archetypes = _cluster_boards(all_boards, catalog=catalog, with_opener=not is_historical)
+    archetypes = _cluster_boards(all_boards, catalog=catalog, with_opener=with_opener)
     # Persist each archetype's full board list for on-demand "load more" paging,
     # then strip the heavy field so meta_cache / snapshots stay lean.
     _store_archetype_boards(platform, tier, set_num, archetypes)
@@ -2530,7 +2538,10 @@ def _seed_current_set(platform: str, active_set: int, tier: str = "all"):
     if written > 0:
         # Force the historical read path (active_set=0) so archetypes are computed
         # from historical_insights, where the fresh-set data actually lives.
-        _cache_archetypes(platform, "challenger", active_set=0, target_set=active_set, catalog=catalog)
+        # active_set=0 forces the historical_insights read path (where the seed
+        # wrote), but this IS the live set, so compute openers/team codes/carousel.
+        _cache_archetypes(platform, "challenger", active_set=0, target_set=active_set,
+                          catalog=catalog, with_opener=True)
         _export_historical_snapshot(platform, "challenger", active_set, active_set)
         _promote_current(platform, "challenger", active_set)
 
