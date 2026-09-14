@@ -1079,7 +1079,20 @@ def _accumulate(acc: dict, participant: dict, catalog: dict, match_ts_s: int) ->
             holder = acc["unitItemHolders"].setdefault(cid, {})
             holder[iname] = holder.get(iname, 0) + 1
 
-    if len(acc["topBoards"]) < 50:
+    board_augs = [str(a) for a in participant.get("augments", []) if a]
+    tb = acc["topBoards"]
+    # Pick the slot to write this board into. While under the 50-board cap we
+    # simply append. Once full, an augment-bearing board preferentially EVICTS a
+    # legacy (augment-less) board so augment coverage backfills over refreshes
+    # without shrinking the sample — older stored boards predate augment capture
+    # and would otherwise permanently occupy every slot.
+    slot = None
+    if len(tb) < 50:
+        slot = len(tb)
+        tb.append(None)
+    elif board_augs:
+        slot = next((i for i, b in enumerate(tb) if not (b or {}).get("augments")), None)
+    if slot is not None:
         board_units = []
         for u in units_list:
             cid2 = u.get("character_id", "")
@@ -1101,10 +1114,10 @@ def _accumulate(acc: dict, participant: dict, catalog: dict, match_ts_s: int) ->
             {"name": _map_name(catalog["traits"], t["name"]), "tier": t.get("tier_current", 0)}
             for t in participant.get("traits", []) if t.get("tier_current", 0) > 0
         ]
-        acc["topBoards"].append({
+        tb[slot] = {
             "placement": pl, "units": board_units, "traits": active_traits,
-            "augments": [str(a) for a in participant.get("augments", []) if a],
-        })
+            "augments": board_augs,
+        }
 
     for aug in participant.get("augments", []):
         ap = acc["augmentCounts"].setdefault(aug, {"games": 0, "total": 0})
@@ -1558,6 +1571,26 @@ def _store_archetype_boards(platform: str, tier: str, set_num: int, archetypes: 
     print(f"[archetypes] Stored {len(all_rows)} boards for on-demand paging (set {set_num})")
 
 
+def _top_augments(aug_map: dict, n: int = 12) -> list:
+    """Rank aggregated augments by pick volume, with weighted avg placement.
+
+    ``aug_map`` values carry {games, iconUrl, tier, totalPl} where totalPl is
+    the games-weighted sum of per-player avg placements. Emitted entries match
+    the per-archetype augment shape the frontend already renders.
+    """
+    out = []
+    for name, v in aug_map.items():
+        g = v.get("games", 0) or 0
+        out.append({
+            "name": name,
+            "iconUrl": v.get("iconUrl"),
+            "tier": v.get("tier"),
+            "games": g,
+            "avgPlacement": round(v["totalPl"] / g, 2) if g else None,
+        })
+    return sorted(out, key=lambda x: -x["games"])[:n]
+
+
 def _cache_archetypes(platform: str, tier: str, active_set: int, target_set: int | None = None,
                       catalog: dict | None = None, with_opener: bool | None = None):
     """
@@ -1718,6 +1751,7 @@ def _export_static_snapshot(platform: str, tier: str, active_set: int):
     item_map: dict = {}
     unit_map: dict = {}
     trait_map: dict = {}
+    aug_map: dict = {}
     gs_player_count = 0
 
     for row in all_insights_rows:
@@ -1746,6 +1780,17 @@ def _export_static_snapshot(platform: str, tier: str, active_set: int):
                 continue
             e = trait_map.setdefault(n, {"games": 0, "iconUrl": trait.get("iconUrl")})
             e["games"] += trait.get("games", 0)
+        for aug in (ins.get("topAugments") or []):
+            n = aug.get("name")
+            if not n:
+                continue
+            g = aug.get("games", 0) or 0
+            e = aug_map.setdefault(n, {"games": 0, "iconUrl": aug.get("iconUrl"),
+                                      "tier": aug.get("tier"), "totalPl": 0.0})
+            e["games"] += g
+            ap = aug.get("avgPlacement")
+            if ap is not None:
+                e["totalPl"] += ap * g
 
     def _top_n(d: dict, n: int = 20) -> list:
         return sorted(
@@ -1757,6 +1802,7 @@ def _export_static_snapshot(platform: str, tier: str, active_set: int):
         "topItems": _top_n(item_map),
         "topUnits": _top_n(unit_map),
         "topTraits": _top_n(trait_map),
+        "topAugments": _top_augments(aug_map),
         "playerCount": gs_player_count,
     }
 
@@ -1934,6 +1980,7 @@ def _export_historical_snapshot(platform: str, tier: str, active_set: int, targe
     item_map: dict = {}
     unit_map: dict = {}
     trait_map: dict = {}
+    aug_map: dict = {}
     gs_player_count = 0
 
     for row in all_rows:
@@ -1959,6 +2006,17 @@ def _export_historical_snapshot(platform: str, tier: str, active_set: int, targe
             if n:
                 e = trait_map.setdefault(n, {"games": 0, "iconUrl": trait.get("iconUrl")})
                 e["games"] += trait.get("games", 0)
+        for aug in (ins.get("topAugments") or []):
+            n = aug.get("name")
+            if not n:
+                continue
+            g = aug.get("games", 0) or 0
+            e = aug_map.setdefault(n, {"games": 0, "iconUrl": aug.get("iconUrl"),
+                                      "tier": aug.get("tier"), "totalPl": 0.0})
+            e["games"] += g
+            ap = aug.get("avgPlacement")
+            if ap is not None:
+                e["totalPl"] += ap * g
 
     def _top_n(d: dict, n: int = 20) -> list:
         return sorted([{"name": k, **v} for k, v in d.items()], key=lambda x: -x.get("games", 0))[:n]
@@ -1967,6 +2025,7 @@ def _export_historical_snapshot(platform: str, tier: str, active_set: int, targe
         "topItems": _top_n(item_map),
         "topUnits": _top_n(unit_map),
         "topTraits": _top_n(trait_map),
+        "topAugments": _top_augments(aug_map),
         "playerCount": gs_player_count,
     }
 
