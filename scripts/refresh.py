@@ -981,6 +981,258 @@ def _classify_opener(arch: dict, catalog: dict) -> dict:
             "source": "curated"}
 
 
+# ── MetaTFT recommended augments ───────────────────────────────────────────────
+# MetaTFT publishes, per comp ("cluster"), a curated augment tier list plus the
+# canonical unit set for each cluster. We match those clusters to OUR data-
+# clustered archetypes (core-unit Jaccard, mirroring _match_tft_comp) and attach
+# the comp's best augments. Public JSON, no auth; needs a browser-like UA + a
+# metatft.com Referer. NON-FATAL by design: any failure just means no recommended
+# augments this run, so a MetaTFT outage never breaks the cron.
+METATFT_API = "https://api-hc.metatft.com/tft-comps-api"
+METATFT_HEADERS = {
+    "Referer": "https://www.metatft.com/",
+    "User-Agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                   "AppleWebKit/537.36 (KHTML, like Gecko) "
+                   "Chrome/120.0.0.0 Safari/537.36"),
+}
+
+_METATFT_AUG: Optional[dict] = None
+
+
+def _metatft_get(path: str) -> Optional[dict]:
+    resp = requests.get(f"{METATFT_API}/{path}", headers=METATFT_HEADERS, timeout=FETCH_TIMEOUT)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def _parse_metatft_unit(uid: str, active_set: int) -> str:
+    """MetaTFT unit id → champion name-ish token. e.g. DA_KogMaw18_AD → 'KogMaw',
+    DA_18_Aphelios → 'Aphelios'. Normalize with _norm_key before matching."""
+    s = re.sub(r"^DA_", "", uid or "")
+    s = re.sub(r"_(AP|AD|Tank|Health)$", "", s)
+    s = s.replace(str(active_set), "")
+    return s.strip("_").replace("_", "")
+
+
+def _metatft_aug_base(aug_id: str, active_set: int) -> str:
+    """Normalized base of a MetaTFT augment id: drop 'DA_', the set infix, the
+    tier variant (I/II/III/1/2/3, Plus/PlusPlus) and _Silver/_Gold/_Prismatic."""
+    s = re.sub(r"^DA_", "", aug_id or "")
+    s = re.sub(rf"(^|_){active_set}(_|$)", "_", s)
+    s = re.sub(r"_(Silver|Gold|Prismatic)$", "", s, flags=re.IGNORECASE)
+    s = re.sub(r"(PlusPlus|Plus)$", "", s)
+    s = re.sub(r"_(I{1,3}|IV|V|1|2|3)$", "", s, flags=re.IGNORECASE)
+    return re.sub(r"[^a-z0-9]", "", s.lower())
+
+
+def _humanize_metatft_aug(aug_id: str, active_set: int) -> str:
+    """Fallback display name from a MetaTFT augment id (de-camelCased).
+    e.g. DA_BandOfThieves → 'Band Of Thieves'."""
+    s = re.sub(r"^DA_", "", aug_id or "")
+    s = re.sub(rf"(^|_){active_set}(_|$)", "_", s)
+    s = s.replace("_", " ")
+    s = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _cdragon_augment_index(catalog: dict) -> list:
+    """Index CDragon augments (drawn from catalog items whose apiName contains
+    'Augment') for MetaTFT id resolution. CDragon's own top-level augments array
+    is empty, so augments live in the items list. Reuses the icon URLs the
+    catalog already built."""
+    active = catalog.get("activeSet") or 0
+    cur_prefix = f"tft{active}_"
+    idx, seen = [], set()
+    for api, v in (catalog.get("items") or {}).items():
+        low = api.lower()
+        if "augment" not in low or api in seen:
+            continue
+        seen.add(api)
+        name = (v or {}).get("name") or ""
+        tail = re.sub(r"^tft\d*_augment_", "", low)
+        idx.append({
+            "iconUrl": (v or {}).get("iconUrl"),
+            "name": name,
+            "normName": re.sub(r"[^a-z0-9]", "", name.lower()),
+            "normTail": re.sub(r"[^a-z0-9]", "", tail),
+            # Prefer current-set ('TFT18_') or generic ('TFT_Augment_') variants.
+            "isCurrent": low.startswith(cur_prefix) or low.startswith("tft_augment_"),
+        })
+    return idx
+
+
+def _resolve_metatft_augment(aug_id: str, active_set: int, index: list) -> Optional[dict]:
+    """Map a MetaTFT augment id → {name, iconUrl} via CDragon. Match the id's
+    normalized base against the normalized TAIL of a CDragon augment apiName OR
+    its normalized display name, preferring current-set variants."""
+    target = _metatft_aug_base(aug_id, active_set)
+    if not target:
+        return None
+    best, best_key = None, None
+    for a in index:
+        tail, nm = a["normTail"], a["normName"]
+        if tail == target or nm == target:
+            score = 3
+        elif tail.startswith(target) or nm.startswith(target):
+            score = 2
+        elif target in tail or target in nm:
+            score = 1
+        else:
+            continue
+        # Prefer stronger match, then current-set, then the closest (shortest) tail.
+        key = (score, 1 if a["isCurrent"] else 0, -len(tail))
+        if best_key is None or key > best_key:
+            best, best_key = a, key
+    if not best:
+        return None
+    return {"name": best["name"], "iconUrl": best["iconUrl"]}
+
+
+def _fetch_metatft_augments(active_set: int, catalog: dict) -> dict:
+    """Pull MetaTFT per-comp augment tiers + canonical unit sets for the active set.
+
+    Returns {"units": {cluster → set(norm unit names)},
+             "tiers": {cluster → [{id, tier}]},
+             "augIndex": [...]}. NON-FATAL: returns {} on any failure."""
+    try:
+        latest = _metatft_get("latest_cluster_id") or {}
+        cluster_prefix = str(latest.get("cluster_id") or "")
+        want = f"TFTSet{active_set}"
+        if latest.get("tft_set") and latest.get("tft_set") != want:
+            print(f"[metatft] set mismatch (MetaTFT={latest.get('tft_set')} ours={want}); skipping")
+            return {}
+
+        def in_set(cluster: str) -> bool:
+            return not cluster_prefix or cluster.startswith(cluster_prefix)
+
+        tiers_raw = (_metatft_get("comp_augment_tiers") or {}).get("results") or {}
+        tiers: dict = {}
+        for cl, v in tiers_raw.items():
+            if not in_set(cl):
+                continue
+            augs = [{"id": a.get("id"), "tier": a.get("tier")}
+                    for a in (v or {}).get("augments", []) if a.get("id")]
+            if augs:
+                tiers[cl] = augs
+
+        options_raw = ((_metatft_get("comp_options") or {}).get("results") or {}).get("options") or {}
+        units: dict = {}
+        for cl, levels in options_raw.items():
+            if not in_set(cl):
+                continue
+            # Canonical unit set = the option row with the highest count.
+            best_row = None
+            for rows in (levels or {}).values():
+                for row in (rows or []):
+                    if best_row is None or (row.get("count") or 0) > (best_row.get("count") or 0):
+                        best_row = row
+            if not best_row:
+                continue
+            names = {_norm_key(_parse_metatft_unit(u, active_set))
+                     for u in (best_row.get("units_list") or "").split("&") if u}
+            names.discard("")
+            if names:
+                units[cl] = names
+
+        if not tiers or not units:
+            print("[metatft] empty tiers/units; skipping recommended augments")
+            return {}
+        idx = _cdragon_augment_index(catalog)
+        print(f"[metatft] {len(tiers)} comp augment lists, {len(units)} comp unit sets, "
+              f"{len(idx)} CDragon augments indexed")
+        return {"units": units, "tiers": tiers, "augIndex": idx}
+    except Exception as e:
+        print(f"[metatft] WARNING: fetch failed ({e}); no recommended augments this run")
+        return {}
+
+
+def _metatft_augments(active_set: int, catalog: dict) -> dict:
+    """Memoized _fetch_metatft_augments (one fetch per process)."""
+    global _METATFT_AUG
+    if _METATFT_AUG is None:
+        _METATFT_AUG = _fetch_metatft_augments(active_set, catalog)
+    return _METATFT_AUG
+
+
+def _curate_recommended_augments(entries: list, arch: dict, active_set: int, cap: int = 12) -> list:
+    """Curate a digestible augment list for a comp from its MetaTFT tier list:
+    comp/trait/hero-specific S-tier first, then general S-tier; fall back to
+    A-tier to fill if there are few S. Deduped by base augment, capped."""
+    trait_keys = {_norm_key(t.get("name", "")) for t in arch.get("traits", [])}
+    unit_keys = {_norm_key(u.get("name", "")) for u in arch.get("coreUnits", [])}
+    key_terms = {k for k in (trait_keys | unit_keys) if len(k) >= 4}
+
+    def is_specific(aid: str) -> bool:
+        low = (aid or "").lower()
+        if f"_{active_set}_" in low:
+            return True
+        nid = re.sub(r"[^a-z0-9]", "", low)
+        return any(k in nid for k in key_terms)
+
+    def bucket(tier: str, spec: bool) -> list:
+        return [e for e in entries if e.get("tier") == tier and is_specific(e["id"]) == spec]
+
+    ordered = bucket("S", True) + bucket("S", False)
+    if len(ordered) < 6:
+        ordered += bucket("A", True) + bucket("A", False)
+
+    seen, out = set(), []
+    for e in ordered:
+        base = _metatft_aug_base(e["id"], active_set)
+        if base in seen:
+            continue
+        seen.add(base)
+        out.append(e)
+        if len(out) >= cap:
+            break
+    return out
+
+
+def _attach_recommended_augments(arch: dict, catalog: dict) -> bool:
+    """Attach MetaTFT-curated recommended augments to an archetype (live set only).
+
+    Finds the MetaTFT cluster whose canonical unit set has the highest Jaccard
+    overlap with the archetype's core units (require jaccard ≥ 0.3 or ≥ 3 shared
+    units), then curates + resolves that cluster's augment tier list. Sets
+    arch['recommendedAugments'] / arch['recommendedAugmentsSource']. Returns True
+    if augments were attached."""
+    active = catalog.get("activeSet") or 0
+    meta = _metatft_augments(active, catalog)
+    if not meta:
+        return False
+    units_by_cluster = meta.get("units") or {}
+    tiers_by_cluster = meta.get("tiers") or {}
+    index = meta.get("augIndex") or []
+    ours = {_norm_key(u["name"]) for u in arch.get("coreUnits", []) if u.get("name")}
+    if not ours:
+        return False
+    best_cl, best_jac, best_shared = None, 0.0, 0
+    for cl, cu in units_by_cluster.items():
+        if not cu:
+            continue
+        shared = len(ours & cu)
+        jac = shared / (len(ours | cu) or 1)
+        if jac > best_jac:
+            best_cl, best_jac, best_shared = cl, jac, shared
+    if best_cl is None or (best_jac < 0.3 and best_shared < 3):
+        return False
+    curated = _curate_recommended_augments(tiers_by_cluster.get(best_cl) or [], arch, active)
+    resolved = []
+    for e in curated:
+        info = _resolve_metatft_augment(e["id"], active, index)
+        resolved.append({
+            "name": (info or {}).get("name") or _humanize_metatft_aug(e["id"], active),
+            "iconUrl": (info or {}).get("iconUrl"),
+            "tier": e.get("tier"),
+            "id": e["id"],
+        })
+    if not resolved:
+        return False
+    arch["recommendedAugments"] = resolved
+    arch["recommendedAugmentsSource"] = "metatft"
+    return True
+
+
 # ── Riot API ──────────────────────────────────────────────────────────────────
 class ApiKeyExpiredError(SystemExit):
     """Raised (exit code 2) when Riot returns 401/403 — key is invalid or expired."""
@@ -1605,6 +1857,9 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
                 car = _carousel_from_tft(match, catalog) if match else None
                 if car:
                     arch["carouselPriority"] = car
+                # Recommended augments (MetaTFT per-comp curated tier list),
+                # matched to this archetype by core-unit overlap. Non-fatal.
+                _attach_recommended_augments(arch, catalog)
             # Carousel priority fallback: aggregate the components a comp's item
             # holders need across their BIS items, ranked by how many are required.
             arch.setdefault("carouselPriority", _compute_carousel_priority(core_units, catalog))
