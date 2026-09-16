@@ -478,28 +478,48 @@ def _classify_board_role(unit: dict, item_roles: dict) -> str:
     return "carry" if score > 0 else "tank"
 
 
-def _compute_board_layout(units: list, catalog: dict) -> list:
+def _compute_board_layout(units: list, catalog: dict, pos_overrides: Optional[dict] = None) -> list:
     """
     Infer a 4×7 board layout for a comp. The Riot API does not expose unit
-    coordinates, so placement is heuristic:
-      • front (melee, range ≤ 1) vs back (ranged) from CDragon stats.range
+    coordinates, so placement is heuristic, in priority order:
+      • EXACT tftactics positions (``pos_overrides`` = {norm(name): (row, col)})
+        for units the matched meta comp positions — this is real, hand-authored
+        positioning and beats any heuristic.
+      • otherwise front (melee, range ≤ 1) vs back (ranged), preferring the
+        tftactics average-row hint over raw CDragon range.
       • front-row tanks cluster center (branching out); a damage carry stuck in
-        the front row goes to the top-left corner
-      • back-row carries fill from the back-left (highest cost / main holder) right
+        the front row goes to the top-left corner.
+      • back-row carries fill from the back-left (highest cost / main holder) right.
     Returns a list of 4 rows × 7 cells, each cell a unit name or None.
     """
     item_roles = catalog.get("itemRoles", {})
     unit_ranges = catalog.get("unitRanges", {})
+    pos_overrides = pos_overrides or {}
 
     def cost_of(u: dict) -> float:
         c = u.get("cost")
         return c if isinstance(c, (int, float)) and c > 0 else 99
 
-    # Prefer real positioning from tftactics (how the unit is actually played);
-    # fall back to CDragon attack range for units not covered there.
+    grid = [[None] * 7 for _ in range(4)]
+
+    # ── 0. Exact tftactics positions ────────────────────────────────────────────
+    placed = set()
+    for u in units:
+        key = _norm_key(u.get("name", ""))
+        rc = pos_overrides.get(key)
+        if not rc:
+            continue
+        r, c = rc
+        if 0 <= r <= 3 and 0 <= c <= 6 and grid[r][c] is None:
+            grid[r][c] = u.get("name")
+            placed.add(key)
+
+    remaining = [u for u in units if _norm_key(u.get("name", "")) not in placed]
+
+    # ── Front / back split for the rest ──────────────────────────────────────────
     pos_hints = _tft_position_hints()
     front, back = [], []
-    for u in units:
+    for u in remaining:
         key = _norm_key(u.get("name", ""))
         hint = pos_hints.get(key)
         if hint is not None:
@@ -508,47 +528,47 @@ def _compute_board_layout(units: list, catalog: dict) -> list:
             rng = unit_ranges.get(key)
             (back if isinstance(rng, (int, float)) and rng > 1 else front).append(u)
 
-    grid = [[None] * 7 for _ in range(4)]
+    def free_in(row_idx: int, order) -> Optional[int]:
+        return next((c for c in order if grid[row_idx][c] is None), None)
 
-    # ── Front row (row 0) ──────────────────────────────────────────────────────
+    # ── Front row (row 0), collision-aware around already-placed units ───────────
     fc = sorted([u for u in front if _classify_board_role(u, item_roles) == "carry"], key=lambda u: -cost_of(u))
     ft = sorted([u for u in front if _classify_board_role(u, item_roles) == "tank"], key=lambda u: -cost_of(u))
     ff = sorted([u for u in front if _classify_board_role(u, item_roles) == "filler"], key=lambda u: -cost_of(u))
-    row0 = grid[0]
-    li = 0
     for u in fc:  # damage carry → top-left
-        if li < 7:
-            row0[li] = u.get("name")
-            li += 1
+        c = free_in(0, [0, 1, 2, 3, 4, 5, 6])
+        if c is not None:
+            grid[0][c] = u.get("name")
+        else:
+            o = free_in(1, range(7))
+            if o is not None:
+                grid[1][o] = u.get("name")
     center_order = [3, 2, 4, 1, 5, 0, 6]
 
     def place_center(lst):
         for u in lst:
-            p = next((s for s in center_order if row0[s] is None), None)
+            p = free_in(0, center_order)
             if p is not None:
-                row0[p] = u.get("name")
+                grid[0][p] = u.get("name")
             else:
-                o = next((i for i, v in enumerate(grid[1]) if v is None), None)
+                o = free_in(1, range(7))
                 if o is not None:
                     grid[1][o] = u.get("name")
 
     place_center(ft)   # main tank dead center, branching out
     place_center(ff)   # secondary melee fill around the center
 
-    # ── Back row (row 3) ───────────────────────────────────────────────────────
+    # ── Back row (row 3), collision-aware ────────────────────────────────────────
     bh = sorted([u for u in back if _classify_board_role(u, item_roles) != "filler"], key=lambda u: -cost_of(u))
     bf = sorted([u for u in back if _classify_board_role(u, item_roles) == "filler"], key=lambda u: -cost_of(u))
-    row3 = grid[3]
-    bi = 0
 
     def place_back(lst):
-        nonlocal bi
         for u in lst:
-            if bi < 7:
-                row3[bi] = u.get("name")  # back-left → right, main carry first
-                bi += 1
+            c = free_in(3, [0, 1, 2, 3, 4, 5, 6])  # back-left → right, main carry first
+            if c is not None:
+                grid[3][c] = u.get("name")
             else:
-                o = next((i for i, v in enumerate(grid[2]) if v is None), None)
+                o = free_in(2, range(7))
                 if o is not None:
                     grid[2][o] = u.get("name")
 
@@ -1547,8 +1567,20 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
                     continue
                 seen.add(u["name"])
                 board_units.append(u)
-            arch["board"] = _compute_board_layout(board_units[:12], catalog)
+            # Leveling first: it sets carryName/category, which _match_tft_comp uses.
             arch.update(_classify_comp_leveling(core_units, flex_units, catalog))
+            # Best-matching tftactics meta comp (live set only). Used for the
+            # prominent board NAME, exact board positioning, and carousel.
+            match = _match_tft_comp(arch) if with_opener else None
+            pos_overrides: dict = {}
+            if match:
+                if match.get("name"):
+                    arch["metaName"] = match["name"]
+                for ch in match.get("characters") or []:
+                    nm, r, c = ch.get("name"), ch.get("row"), ch.get("col")
+                    if nm and isinstance(r, int) and isinstance(c, int):
+                        pos_overrides[_norm_key(nm)] = (r, c)
+            arch["board"] = _compute_board_layout(board_units[:12], catalog, pos_overrides or None)
             # Early-game opener: what to build toward before pivoting to the
             # final board (needs carryName/category from the leveling step above).
             # Openers are curated for the live set only; skip on historical sets.
@@ -1570,7 +1602,6 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
                 # Carousel priority: prefer tftactics' curated key-item components
                 # (weighted toward the comp's BIS carry/tank items) when the comp
                 # matches a meta comp; else fall back to the frequency tally below.
-                match = _match_tft_comp(arch)
                 car = _carousel_from_tft(match, catalog) if match else None
                 if car:
                     arch["carouselPriority"] = car
