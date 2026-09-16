@@ -1,1556 +1,3689 @@
 [
- {
-  "name": "Elderwood Spellweavers",
-  "playstyle": "Fast 8",
-  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
-  "units": [
-   "Ornn",
-   "Yunara",
-   "Fiddlesticks",
-   "Ahri",
-   "Ezreal",
-   "Sett",
-   "Soraka",
-   "Gnar"
-  ],
-  "carries": [
-   "Ahri",
-   "Sett"
-  ],
-  "mid": [
-   "Karma",
-   "Rakan",
-   "Yorick",
-   "Yunara",
-   "Azir"
-  ],
-  "carrousel": [
-   {
-    "item": "Executioner Emblem",
-    "component": "Spatula",
-    "shadow": false
-   },
-   {
-    "item": "Spear of Shojin",
-    "component": "Tear of the Goddess",
-    "shadow": false
-   },
-   {
-    "item": "Spear of Shojin",
-    "component": "B.F. Sword",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Blossom Spellweavers",
-  "playstyle": "Fast 8",
-  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
-  "units": [
-   "Karma",
-   "Yorick",
-   "Vi",
-   "Ahri",
-   "Sett",
-   "Sivir",
-   "Ashe",
-   "Gnar"
-  ],
-  "carries": [
-   "Ahri",
-   "Sett"
-  ],
-  "mid": [
-   "Karma",
-   "Rakan",
-   "Yorick",
-   "Yunara",
-   "Azir"
-  ],
-  "carrousel": [
-   {
-    "item": "Spear of Shojin",
-    "component": "Tear of the Goddess",
-    "shadow": false
-   },
-   {
-    "item": "Spear of Shojin",
-    "component": "B.F. Sword",
-    "shadow": false
-   },
-   {
-    "item": "Jeweled Gauntlet",
-    "component": "Needlessly Large Rod",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Invoker Spellweavers",
-  "playstyle": "Fast 8",
-  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
-  "units": [
-   "Karma",
-   "Pebbles",
-   "Krug",
-   "Sett",
-   "Ahri",
-   "Morgana",
-   "Sentinel",
-   "Taric"
-  ],
-  "carries": [
-   "Ahri",
-   "Sentinel"
-  ],
-  "mid": [
-   "Rakan",
-   "Yorick",
-   "Karma",
-   "Leblanc",
-   "Yunara"
-  ],
-  "carrousel": [
-   {
-    "item": "Invoker Emblem",
-    "component": "Frying Pan",
-    "shadow": false
-   },
-   {
-    "item": "Invoker Emblem",
-    "component": "Tear of the Goddess",
-    "shadow": false
-   },
-   {
-    "item": "Jeweled Gauntlet",
-    "component": "Needlessly Large Rod",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Coven Spellweavers",
-  "playstyle": "Fast 8",
-  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
-  "units": [
-   "Elise",
-   "Cassiopeia",
-   "Diana",
-   "Fiddlesticks",
-   "Ahri",
-   "Morgana",
-   "Sentinel",
-   "Taric"
-  ],
-  "carries": [
-   "Ahri",
-   "Sentinel"
-  ],
-  "mid": [
-   "Camille",
-   "Rakan",
-   "Caitlyn",
-   "Elise",
-   "Cassiopeia"
-  ],
-  "carrousel": [
-   {
-    "item": "Spear of Shojin",
-    "component": "Tear of the Goddess",
-    "shadow": false
-   },
-   {
-    "item": "Spear of Shojin",
-    "component": "B.F. Sword",
-    "shadow": false
-   },
-   {
-    "item": "Jeweled Gauntlet",
-    "component": "Needlessly Large Rod",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Spellweaver Defenders",
-  "playstyle": "Slow Roll (7)",
-  "description": "3-star units at level 7 by rolling your excess gold every round.",
-  "units": [
-   "Leona",
-   "Ornn",
-   "Shen",
-   "Cassiopeia",
-   "Fiddlesticks",
-   "Rammus",
-   "Lillia",
-   "Soraka"
-  ],
-  "carries": [
-   "Cassiopeia",
-   "Fiddlesticks"
-  ],
-  "mid": [
-   "Leona",
-   "Ornn",
-   "Shen",
-   "Cassiopeia",
-   "Fiddlesticks"
-  ],
-  "carrousel": [
-   {
-    "item": "Archangel's Staff",
-    "component": "Tear of the Goddess",
-    "shadow": false
-   },
-   {
-    "item": "Archangel's Staff",
-    "component": "Needlessly Large Rod",
-    "shadow": false
-   },
-   {
-    "item": "Hextech Gunblade",
-    "component": "B.F. Sword",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Invoker Vanguards",
-  "playstyle": "Fast 8",
-  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
-  "units": [
-   "Rakan",
-   "Diana",
-   "Kogmaw",
-   "Vi",
-   "Morgana",
-   "Nidalee",
-   "Sentinel",
-   "Taric"
-  ],
-  "carries": [
-   "Morgana",
-   "Nidalee",
-   "Sentinel"
-  ],
-  "mid": [
-   "Camille",
-   "Rakan",
-   "Caitlyn",
-   "Elise",
-   "Kogmaw"
-  ],
-  "carrousel": [
-   {
-    "item": "Guinsoo's Rageblade",
-    "component": "Needlessly Large Rod",
-    "shadow": false
-   },
-   {
-    "item": "Guinsoo's Rageblade",
-    "component": "Recurve Bow",
-    "shadow": false
-   },
-   {
-    "item": "Jeweled Gauntlet",
-    "component": "Sparring Gloves",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Caustic Adaptors",
-  "playstyle": "Slow Roll (7)",
-  "description": "3-star units at level 7 by rolling your excess gold every round.",
-  "units": [
-   "Yorick",
-   "Kogmaw",
-   "Krug",
-   "Master Yi",
-   "Vi",
-   "Nidalee",
-   "Sett",
-   "Gnar"
-  ],
-  "carries": [
-   "Kogmaw",
-   "Master Yi"
-  ],
-  "mid": [
-   "Yorick",
-   "Karma",
-   "Gromp",
-   "Master Yi",
-   "Vi"
-  ],
-  "carrousel": [
-   {
-    "item": "Guinsoo's Rageblade",
-    "component": "Recurve Bow",
-    "shadow": false
-   },
-   {
-    "item": "Guinsoo's Rageblade",
-    "component": "Needlessly Large Rod",
-    "shadow": false
-   },
-   {
-    "item": "Edge of Night",
-    "component": "B.F. Sword",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Riftbeasts Reroll",
-  "playstyle": "Slow Roll (5)",
-  "description": "3-star units at level 5 by rolling your excess gold every round.",
-  "units": [
-   "Cinderling",
-   "Krug",
-   "Pebbles",
-   "Murkwolf",
-   "Scuttlecrab",
-   "Brambleback",
-   "Sentinel",
-   "Gnar"
-  ],
-  "carries": [
-   "Cinderling",
-   "Krug",
-   "Pebbles"
-  ],
-  "mid": [
-   "Pebbles",
-   "Cinderling",
-   "Murkwolf",
-   "Scuttlecrab",
-   "Krug"
-  ],
-  "carrousel": [
-   {
-    "item": "Blue Buff",
-    "component": "Tear of the Goddess",
-    "shadow": false
-   },
-   {
-    "item": "Jeweled Gauntlet",
-    "component": "Sparring Gloves",
-    "shadow": false
-   },
-   {
-    "item": "Jeweled Gauntlet",
-    "component": "Needlessly Large Rod",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Fae Rapidfire",
-  "playstyle": "Slow Roll (5)",
-  "description": "3-star units at level 5 by rolling your excess gold every round.",
-  "units": [
-   "Ornn",
-   "Rakan",
-   "Varus",
-   "Xayah",
-   "Hecarim",
-   "Tristana",
-   "Amumu",
-   "Lillia"
-  ],
-  "carries": [
-   "Ornn",
-   "Xayah"
-  ],
-  "mid": [
-   "Ornn",
-   "Rakan",
-   "Varus",
-   "Xayah",
-   "Shen"
-  ],
-  "carrousel": [
-   {
-    "item": "Guinsoo's Rageblade",
-    "component": "Recurve Bow",
-    "shadow": false
-   },
-   {
-    "item": "Guinsoo's Rageblade",
-    "component": "Needlessly Large Rod",
-    "shadow": false
-   },
-   {
-    "item": "Infinity Edge",
-    "component": "B.F. Sword",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Elderwood Rapidfire",
-  "playstyle": "Fast 8",
-  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
-  "units": [
-   "Ornn",
-   "Xayah",
-   "Alistar",
-   "Leblanc",
-   "Aphelios",
-   "Lillia",
-   "Alune",
-   "Gnar"
-  ],
-  "carries": [
-   "Aphelios",
-   "Lillia"
-  ],
-  "mid": [
-   "Ornn",
-   "Varus",
-   "Xayah",
-   "Alistar",
-   "Shen"
-  ],
-  "carrousel": [
-   {
-    "item": "Guinsoo's Rageblade",
-    "component": "Recurve Bow",
-    "shadow": false
-   },
-   {
-    "item": "Guinsoo's Rageblade",
-    "component": "Needlessly Large Rod",
-    "shadow": false
-   },
-   {
-    "item": "Infinity Edge",
-    "component": "B.F. Sword",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Primal Hunters",
-  "playstyle": "Fast 8",
-  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
-  "units": [
-   "Shen",
-   "Tristana",
-   "Vi",
-   "Amumu",
-   "Lillia",
-   "Sivir",
-   "Ashe",
-   "Kennen"
-  ],
-  "carries": [
-   "Amumu",
-   "Sivir"
-  ],
-  "mid": [
-   "Camille",
-   "Rakan",
-   "Caitlyn",
-   "Elise",
-   "Tristana"
-  ],
-  "carrousel": [
-   {
-    "item": "Infinity Edge",
-    "component": "B.F. Sword",
-    "shadow": false
-   },
-   {
-    "item": "Infinity Edge",
-    "component": "Sparring Gloves",
-    "shadow": false
-   },
-   {
-    "item": "Striker's Flail",
-    "component": "Giant's Belt",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Primal Adaptors",
-  "playstyle": "Fast 8",
-  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
-  "units": [
-   "Akali",
-   "Diana",
-   "Kogmaw",
-   "Master Yi",
-   "Vi",
-   "Amumu",
-   "Nidalee",
-   "Sentinel"
-  ],
-  "carries": [
-   "Amumu",
-   "Nidalee"
-  ],
-  "mid": [
-   "Akali",
-   "Ornn",
-   "Varus",
-   "Shen",
-   "Master Yi"
-  ],
-  "carrousel": [
-   {
-    "item": "Jeweled Gauntlet",
-    "component": "Needlessly Large Rod",
-    "shadow": false
-   },
-   {
-    "item": "Jeweled Gauntlet",
-    "component": "Sparring Gloves",
-    "shadow": false
-   },
-   {
-    "item": "Nashor's Tooth",
-    "component": "Recurve Bow",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Juggernaut Summoners",
-  "playstyle": "Fast 8",
-  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
-  "units": [
-   "Yorick",
-   "Azir",
-   "Fiddlesticks",
-   "Amumu",
-   "Malphite",
-   "Soraka",
-   "Zyra",
-   "Kennen"
-  ],
-  "carries": [
-   "Malphite",
-   "Zyra"
-  ],
-  "mid": [
-   "Kobuko",
-   "RekSai",
-   "Pebbles",
-   "Veigar",
-   "Teemo"
-  ],
-  "carrousel": [
-   {
-    "item": "Morellonomicon",
-    "component": "Needlessly Large Rod",
-    "shadow": false
-   },
-   {
-    "item": "Morellonomicon",
-    "component": "Giant's Belt",
-    "shadow": false
-   },
-   {
-    "item": "Void Staff",
-    "component": "Recurve Bow",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Flora Executioners",
-  "playstyle": "Fast 8",
-  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
-  "units": [
-   "Yorick",
-   "Azir",
-   "Fiddlesticks",
-   "Amumu",
-   "Malphite",
-   "Soraka",
-   "Zyra",
-   "Kennen"
-  ],
-  "carries": [
-   "Malphite",
-   "Soraka"
-  ],
-  "mid": [
-   "Kobuko",
-   "RekSai",
-   "Pebbles",
-   "Veigar",
-   "Teemo"
-  ],
-  "carrousel": [
-   {
-    "item": "Jeweled Gauntlet",
-    "component": "Needlessly Large Rod",
-    "shadow": false
-   },
-   {
-    "item": "Jeweled Gauntlet",
-    "component": "Sparring Gloves",
-    "shadow": false
-   },
-   {
-    "item": "Nashor's Tooth",
-    "component": "Recurve Bow",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Fae Hunters",
-  "playstyle": "Slow Roll (7)",
-  "description": "3-star units at level 7 by rolling your excess gold every round.",
-  "units": [
-   "Rakan",
-   "Xayah",
-   "Rammus",
-   "Tristana",
-   "Vi",
-   "Sivir",
-   "Lillia",
-   "Gnar"
-  ],
-  "carries": [
-   "Rammus",
-   "Tristana",
-   "Sivir"
-  ],
-  "mid": [
-   "Kobuko",
-   "Rakan",
-   "Xayah",
-   "Rammus",
-   "Tristana"
-  ],
-  "carrousel": [
-   {
-    "item": "Infinity Edge",
-    "component": "B.F. Sword",
-    "shadow": false
-   },
-   {
-    "item": "Infinity Edge",
-    "component": "Sparring Gloves",
-    "shadow": false
-   },
-   {
-    "item": "Guinsoo's Rageblade",
-    "component": "Recurve Bow",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Sprykin Hunters",
-  "playstyle": "Slow Roll (7)",
-  "description": "3-star units at level 7 by rolling your excess gold every round.",
-  "units": [
-   "Kobuko",
-   "Teemo",
-   "Rammus",
-   "Tristana",
-   "Sentinel",
-   "Lillia",
-   "Ashe",
-   "Gnar"
-  ],
-  "carries": [
-   "Rammus",
-   "Tristana"
-  ],
-  "mid": [
-   "Kobuko",
-   "Veigar",
-   "Teemo",
-   "Rammus",
-   "Tristana"
-  ],
-  "carrousel": [
-   {
-    "item": "Infinity Edge",
-    "component": "B.F. Sword",
-    "shadow": false
-   },
-   {
-    "item": "Infinity Edge",
-    "component": "Sparring Gloves",
-    "shadow": false
-   },
-   {
-    "item": "Guinsoo's Rageblade",
-    "component": "Recurve Bow",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Sprykin Invokers",
-  "playstyle": "Slow Roll (6)",
-  "description": "3-star units at level 6 by rolling your excess gold every round.",
-  "units": [
-   "Kobuko",
-   "Teemo",
-   "Rammus",
-   "Tristana",
-   "Sentinel",
-   "Lillia",
-   "Gnar",
-   "Taric"
-  ],
-  "carries": [
-   "Teemo",
-   "Sentinel"
-  ],
-  "mid": [
-   "Kobuko",
-   "Pebbles",
-   "Shen",
-   "Teemo",
-   "Rammus"
-  ],
-  "carrousel": [
-   {
-    "item": "Jeweled Gauntlet",
-    "component": "Needlessly Large Rod",
-    "shadow": false
-   },
-   {
-    "item": "Jeweled Gauntlet",
-    "component": "Sparring Gloves",
-    "shadow": false
-   },
-   {
-    "item": "Nashor's Tooth",
-    "component": "Recurve Bow",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Rivals Khazix",
-  "playstyle": "Slow Roll (7)",
-  "description": "3-star units at level 7 by rolling your excess gold every round.",
-  "units": [
-   "Diana",
-   "Hecarim",
-   "Mama Beak",
-   "Khazix",
-   "Aphelios",
-   "Brambleback",
-   "Sentinel",
-   "Taric"
-  ],
-  "carries": [
-   "Hecarim",
-   "Khazix"
-  ],
-  "mid": [
-   "Akali",
-   "Gromp",
-   "Murkwolf",
-   "Scuttlecrab",
-   "Khazix"
-  ],
-  "carrousel": [
-   {
-    "item": "Edge of Night",
-    "component": "B.F. Sword",
-    "shadow": false
-   },
-   {
-    "item": "Edge of Night",
-    "component": "Chain Vest",
-    "shadow": false
-   },
-   {
-    "item": "Jeweled Gauntlet",
-    "component": "Needlessly Large Rod",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Lunar Rapidfire",
-  "playstyle": "Fast 8",
-  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
-  "units": [
-   "Diana",
-   "Hecarim",
-   "Mama Beak",
-   "Aphelios",
-   "Brambleback",
-   "Sentinel",
-   "Zyra",
-   "Taric"
-  ],
-  "carries": [
-   "Aphelios",
-   "Sentinel"
-  ],
-  "mid": [
-   "Ornn",
-   "Rakan",
-   "Varus",
-   "Xayah",
-   "Hecarim"
-  ],
-  "carrousel": [
-   {
-    "item": "Edge of Night",
-    "component": "B.F. Sword",
-    "shadow": false
-   },
-   {
-    "item": "Edge of Night",
-    "component": "Chain Vest",
-    "shadow": false
-   },
-   {
-    "item": "Infinity Edge",
-    "component": "Sparring Gloves",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Solar Rapidfire",
-  "playstyle": "Slow Roll (6)",
-  "description": "3-star units at level 6 by rolling your excess gold every round.",
-  "units": [
-   "Leona",
-   "Varus",
-   "Kayle",
-   "Sejuani",
-   "Shen",
-   "Diana",
-   "Aphelios",
-   "Alune"
-  ],
-  "carries": [
-   "Kayle",
-   "Sejuani"
-  ],
-  "mid": [
-   "Leona",
-   "Varus",
-   "Kayle",
-   "Sejuani",
-   "Shen"
-  ],
-  "carrousel": [
-   {
-    "item": "Guinsoo's Rageblade",
-    "component": "Recurve Bow",
-    "shadow": false
-   },
-   {
-    "item": "Guinsoo's Rageblade",
-    "component": "Needlessly Large Rod",
-    "shadow": false
-   },
-   {
-    "item": "Jeweled Gauntlet",
-    "component": "Sparring Gloves",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Coven Invokers",
-  "playstyle": "Fast 8",
-  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
-  "units": [
-   "Pebbles",
-   "Diana",
-   "Hecarim",
-   "Kogmaw",
-   "Brambleback",
-   "Morgana",
-   "Sentinel",
-   "Taric"
-  ],
-  "carries": [
-   "Morgana",
-   "Sentinel"
-  ],
-  "mid": [
-   "Camille",
-   "Rakan",
-   "Caitlyn",
-   "Elise",
-   "Cassiopeia"
-  ],
-  "carrousel": [
-   {
-    "item": "Morellonomicon",
-    "component": "Needlessly Large Rod",
-    "shadow": false
-   },
-   {
-    "item": "Morellonomicon",
-    "component": "Giant's Belt",
-    "shadow": false
-   },
-   {
-    "item": "Void Staff",
-    "component": "Tear of the Goddess",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Unrivaled",
-  "playstyle": "Slow Roll (7)",
-  "description": "3-star units at level 7 by rolling your excess gold every round.",
-  "units": [
-   "Leblanc",
-   "Diana",
-   "Hecarim",
-   "Khazix",
-   "Rengar",
-   "Aphelios",
-   "Ezreal",
-   "Alune"
-  ],
-  "carries": [
-   "Hecarim",
-   "Khazix",
-   "Rengar"
-  ],
-  "mid": [
-   "Ornn",
-   "Alistar",
-   "Leblanc",
-   "Khazix",
-   "Rengar"
-  ],
-  "carrousel": [
-   {
-    "item": "Edge of Night",
-    "component": "B.F. Sword",
-    "shadow": false
-   },
-   {
-    "item": "Edge of Night",
-    "component": "Chain Vest",
-    "shadow": false
-   },
-   {
-    "item": "Hand of Justice",
-    "component": "Sparring Gloves",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Rivals Rengar",
-  "playstyle": "Slow Roll (7)",
-  "description": "3-star units at level 7 by rolling your excess gold every round.",
-  "units": [
-   "Diana",
-   "Hecarim",
-   "Mama Beak",
-   "Rengar",
-   "Aphelios",
-   "Brambleback",
-   "Sentinel",
-   "Taric"
-  ],
-  "carries": [
-   "Hecarim",
-   "Rengar"
-  ],
-  "mid": [
-   "Akali",
-   "Gromp",
-   "Murkwolf",
-   "Scuttlecrab",
-   "Rengar"
-  ],
-  "carrousel": [
-   {
-    "item": "Edge of Night",
-    "component": "B.F. Sword",
-    "shadow": false
-   },
-   {
-    "item": "Edge of Night",
-    "component": "Chain Vest",
-    "shadow": false
-   },
-   {
-    "item": "Guinsoo's Rageblade",
-    "component": "Recurve Bow",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Fae Spellweavers",
-  "playstyle": "Fast 8",
-  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
-  "units": [
-   "Karma",
-   "Rakan",
-   "Yorick",
-   "Diana",
-   "Fiddlesticks",
-   "Ahri",
-   "Lillia",
-   "Alune"
-  ],
-  "carries": [
-   "Ahri",
-   "Lillia"
-  ],
-  "mid": [
-   "Karma",
-   "Rakan",
-   "Yorick",
-   "Yunara",
-   "Azir"
-  ],
-  "carrousel": [
-   {
-    "item": "Jeweled Gauntlet",
-    "component": "Needlessly Large Rod",
-    "shadow": false
-   },
-   {
-    "item": "Jeweled Gauntlet",
-    "component": "Sparring Gloves",
-    "shadow": false
-   },
-   {
-    "item": "Nashor's Tooth",
-    "component": "Recurve Bow",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Elderwood Executioners",
-  "playstyle": "Fast 9",
-  "description": "Level 9 early in Stage 5 to find 5 cost units. Need long win/lose streaks or econ augments.",
-  "units": [
-   "Alistar",
-   "Amumu",
-   "Ezreal",
-   "Draven",
-   "Gnar",
-   "Ivern",
-   "Kennen",
-   "Maokai",
-   "Taric"
-  ],
-  "carries": [
-   "Draven",
-   "Maokai"
-  ],
-  "mid": [
-   "Ornn",
-   "Varus",
-   "Xayah",
-   "Alistar",
-   "Shen"
-  ],
-  "carrousel": [
-   {
-    "item": "Infinity Edge",
-    "component": "B.F. Sword",
-    "shadow": false
-   },
-   {
-    "item": "Infinity Edge",
-    "component": "Sparring Gloves",
-    "shadow": false
-   },
-   {
-    "item": "Spear of Shojin",
-    "component": "Tear of the Goddess",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Elderwood",
-  "playstyle": "Standard",
-  "description": "Flexible strategy focused around a healthy economy while still keeping up in levels. General rules are Level 6 by 3-2, Level 7 by 4-1, and Level 8 by 5-1.",
-  "units": [
-   "Ornn",
-   "Xayah",
-   "Alistar",
-   "Leblanc",
-   "Hecarim",
-   "Ezreal",
-   "Soraka",
-   "Gnar"
-  ],
-  "carries": [
-   "Hecarim",
-   "Ezreal"
-  ],
-  "mid": [
-   "Ornn",
-   "Xayah",
-   "Alistar",
-   "Leblanc",
-   "Hecarim"
-  ],
-  "carrousel": [
-   {
-    "item": "Spear of Shojin",
-    "component": "B.F. Sword",
-    "shadow": false
-   },
-   {
-    "item": "Spear of Shojin",
-    "component": "Tear of the Goddess",
-    "shadow": false
-   },
-   {
-    "item": "Infinity Edge",
-    "component": "Sparring Gloves",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Apex Predator",
-  "playstyle": "Fast 9",
-  "description": "Level 9 early in Stage 5 to find 5 cost units. Need long win/lose streaks or econ augments.",
-  "units": [
-   "Pebbles",
-   "Murkwolf",
-   "Krug",
-   "Brambleback",
-   "Sentinel",
-   "Elder Dragon",
-   "Gnar",
-   "Taric"
-  ],
-  "carries": [
-   "Sentinel",
-   "Elder Dragon"
-  ],
-  "mid": [
-   "Cinderling",
-   "Pebbles",
-   "Gromp",
-   "Scuttlecrab",
-   "Krug"
-  ],
-  "carrousel": [
-   {
-    "item": "Infinity Edge",
-    "component": "B.F. Sword",
-    "shadow": false
-   },
-   {
-    "item": "Infinity Edge",
-    "component": "Sparring Gloves",
-    "shadow": false
-   },
-   {
-    "item": "Last Whisper",
-    "component": "Recurve Bow",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Consuming Flora",
-  "playstyle": "Slow Roll (5)",
-  "description": "3-star units at level 5 by rolling your excess gold every round.",
-  "units": [
-   "Kobuko",
-   "RekSai",
-   "Veigar",
-   "Teemo",
-   "Fiddlesticks",
-   "Rammus",
-   "Sett",
-   "Gnar"
-  ],
-  "carries": [
-   "RekSai",
-   "Veigar"
-  ],
-  "mid": [
-   "Kobuko",
-   "RekSai",
-   "Veigar",
-   "Teemo",
-   "Fiddlesticks"
-  ],
-  "carrousel": [
-   {
-    "item": "Jeweled Gauntlet",
-    "component": "Needlessly Large Rod",
-    "shadow": false
-   },
-   {
-    "item": "Jeweled Gauntlet",
-    "component": "Sparring Gloves",
-    "shadow": false
-   },
-   {
-    "item": "Blue Buff",
-    "component": "Tear of the Goddess",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Blackthorn Sprykin",
-  "playstyle": "Slow Roll (5)",
-  "description": "3-star units at level 5 by rolling your excess gold every round.",
-  "units": [
-   "Kobuko",
-   "RekSai",
-   "Veigar",
-   "Fiddlesticks",
-   "Rammus",
-   "Tristana",
-   "Sett",
-   "Gnar"
-  ],
-  "carries": [
-   "RekSai",
-   "Veigar"
-  ],
-  "mid": [
-   "Kobuko",
-   "RekSai",
-   "Veigar",
-   "Leblanc",
-   "Rammus"
-  ],
-  "carrousel": [
-   {
-    "item": "Jeweled Gauntlet",
-    "component": "Needlessly Large Rod",
-    "shadow": false
-   },
-   {
-    "item": "Jeweled Gauntlet",
-    "component": "Sparring Gloves",
-    "shadow": false
-   },
-   {
-    "item": "Nashor's Tooth",
-    "component": "Recurve Bow",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Riftbeast Summoners",
-  "playstyle": "Slow Roll (7)",
-  "description": "3-star units at level 7 by rolling your excess gold every round.",
-  "units": [
-   "Yorick",
-   "Diana",
-   "Krug",
-   "Mama Beak",
-   "Sentinel",
-   "Aphelios",
-   "Sett",
-   "Zyra"
-  ],
-  "carries": [
-   "Krug",
-   "Mama Beak"
-  ],
-  "mid": [
-   "Cinderling",
-   "Pebbles",
-   "Scuttlecrab",
-   "Krug",
-   "Mama Beak"
-  ],
-  "carrousel": [
-   {
-    "item": "Infinity Edge",
-    "component": "B.F. Sword",
-    "shadow": false
-   },
-   {
-    "item": "Infinity Edge",
-    "component": "Sparring Gloves",
-    "shadow": false
-   },
-   {
-    "item": "Guinsoo's Rageblade",
-    "component": "Recurve Bow",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Eclipse Rapidfire",
-  "playstyle": "Fast 8",
-  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
-  "units": [
-   "Leona",
-   "Rakan",
-   "Kayle",
-   "Sejuani",
-   "Diana",
-   "Aphelios",
-   "Lillia",
-   "Alune"
-  ],
-  "carries": [
-   "Aphelios",
-   "Lillia"
-  ],
-  "mid": [
-   "Leona",
-   "Rakan",
-   "Xayah",
-   "Kayle",
-   "Sejuani"
-  ],
-  "carrousel": [
-   {
-    "item": "Guinsoo's Rageblade",
-    "component": "Recurve Bow",
-    "shadow": false
-   },
-   {
-    "item": "Guinsoo's Rageblade",
-    "component": "Needlessly Large Rod",
-    "shadow": false
-   },
-   {
-    "item": "Infinity Edge",
-    "component": "B.F. Sword",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Juggernaut Hunters",
-  "playstyle": "Slow Roll (6)",
-  "description": "3-star units at level 6 by rolling your excess gold every round.",
-  "units": [
-   "Rakan",
-   "Caitlyn",
-   "Scuttlecrab",
-   "Sejuani",
-   "Tristana",
-   "Vi",
-   "Sivir",
-   "Ashe"
-  ],
-  "carries": [
-   "Caitlyn",
-   "Scuttlecrab",
-   "Sivir"
-  ],
-  "mid": [
-   "Rakan",
-   "Caitlyn",
-   "Sejuani",
-   "Scuttlecrab",
-   "Vi"
-  ],
-  "carrousel": [
-   {
-    "item": "Guinsoo's Rageblade",
-    "component": "Recurve Bow",
-    "shadow": false
-   },
-   {
-    "item": "Guinsoo's Rageblade",
-    "component": "Needlessly Large Rod",
-    "shadow": false
-   },
-   {
-    "item": "Kraken's Fury",
-    "component": "Negatron Cloak",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Blossom Executioners",
-  "playstyle": "Slow Roll (6)",
-  "description": "3-star units at level 6 by rolling your excess gold every round.",
-  "units": [
-   "Alistar",
-   "Leblanc",
-   "Yunara",
-   "Ahri",
-   "Ezreal",
-   "Sett",
-   "Soraka",
-   "Kennen"
-  ],
-  "carries": [
-   "Alistar",
-   "Yunara",
-   "Ezreal"
-  ],
-  "mid": [
-   "Rakan",
-   "Yorick",
-   "Karma",
-   "Leblanc",
-   "Yunara"
-  ],
-  "carrousel": [
-   {
-    "item": "Spear of Shojin",
-    "component": "B.F. Sword",
-    "shadow": false
-   },
-   {
-    "item": "Spear of Shojin",
-    "component": "Tear of the Goddess",
-    "shadow": false
-   },
-   {
-    "item": "Striker's Flail",
-    "component": "Sparring Gloves",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Blackthorn Ravagers",
-  "playstyle": "Slow Roll (6)",
-  "description": "3-star units at level 6 by rolling your excess gold every round.",
-  "units": [
-   "RekSai",
-   "Murkwolf",
-   "Warwick",
-   "Azir",
-   "Diana",
-   "Krug",
-   "Brambleback",
-   "Malphite"
-  ],
-  "carries": [
-   "Warwick",
-   "Malphite"
-  ],
-  "mid": [
-   "RekSai",
-   "Veigar",
-   "Murkwolf",
-   "Warwick",
-   "Azir"
-  ],
-  "carrousel": [
-   {
-    "item": "Spear of Shojin",
-    "component": "B.F. Sword",
-    "shadow": false
-   },
-   {
-    "item": "Spear of Shojin",
-    "component": "Tear of the Goddess",
-    "shadow": false
-   },
-   {
-    "item": "Titan's Resolve",
-    "component": "Recurve Bow",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Solar Riftbeasts",
-  "playstyle": "Slow Roll (6)",
-  "description": "3-star units at level 6 by rolling your excess gold every round.",
-  "units": [
-   "Akali",
-   "Leona",
-   "Gromp",
-   "Kayle",
-   "Murkwolf",
-   "Scuttlecrab",
-   "Sejuani",
-   "Shen"
-  ],
-  "carries": [
-   "Gromp",
-   "Scuttlecrab"
-  ],
-  "mid": [
-   "Cinderling",
-   "Gromp",
-   "Murkwolf",
-   "Scuttlecrab",
-   "Krug"
-  ],
-  "carrousel": [
-   {
-    "item": "Deathblade",
-    "component": "B.F. Sword",
-    "shadow": false
-   },
-   {
-    "item": "Red Buff",
-    "component": "Recurve Bow",
-    "shadow": false
-   },
-   {
-    "item": "Last Whisper",
-    "component": "Sparring Gloves",
-    "shadow": false
-   }
-  ]
- },
- {
-  "name": "Riftbeast Ravagers",
-  "playstyle": "Fast 8",
-  "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
-  "units": [
-   "Pebbles",
-   "Murkwolf",
-   "Krug",
-   "Sentinel",
-   "Brambleback",
-   "Elder Dragon",
-   "Taric"
-  ],
-  "carries": [
-   "Sentinel",
-   "Brambleback"
-  ],
-  "mid": [
-   "Cinderling",
-   "Pebbles",
-   "Murkwolf",
-   "Scuttlecrab",
-   "Krug"
-  ],
-  "carrousel": [
-   {
-    "item": "Edge of Night",
-    "component": "B.F. Sword",
-    "shadow": false
-   },
-   {
-    "item": "Edge of Night",
-    "component": "Chain Vest",
-    "shadow": false
-   },
-   {
-    "item": "Quicksilver",
-    "component": "Sparring Gloves",
-    "shadow": false
-   }
-  ]
- }
+  {
+    "name": "Blossom Spellweavers",
+    "tier": 1,
+    "playstyle": "Fast 8",
+    "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+    "units": [
+      "Karma",
+      "Yorick",
+      "Vi",
+      "Ahri",
+      "Sett",
+      "Sivir",
+      "Ashe",
+      "Gnar"
+    ],
+    "carries": [
+      "Ahri",
+      "Sett"
+    ],
+    "mid": [
+      "Karma",
+      "Rakan",
+      "Yorick",
+      "Yunara",
+      "Azir"
+    ],
+    "carrousel": [
+      {
+        "item": "Spear of Shojin",
+        "component": "Tear of the Goddess",
+        "shadow": false
+      },
+      {
+        "item": "Spear of Shojin",
+        "component": "B.F. Sword",
+        "shadow": false
+      },
+      {
+        "item": "Jeweled Gauntlet",
+        "component": "Needlessly Large Rod",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Karma",
+        "items": [],
+        "row": 3,
+        "col": 4
+      },
+      {
+        "name": "Yorick",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Vi",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Ahri",
+        "items": [
+          "Jeweled Gauntlet",
+          "Spear of Shojin",
+          "Striker's Flail"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Sett",
+        "items": [
+          "Ionic Spark",
+          "Sunfire Cape",
+          "Warmog's Armor"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Sivir",
+        "items": [],
+        "row": 3,
+        "col": 2
+      },
+      {
+        "name": "Ashe",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Gnar",
+        "items": [],
+        "row": 0,
+        "col": 4
+      }
+    ]
+  },
+  {
+    "name": "Invoker Spellweavers",
+    "tier": 1,
+    "playstyle": "Fast 8",
+    "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+    "units": [
+      "Karma",
+      "Pebbles",
+      "Krug",
+      "Sett",
+      "Ahri",
+      "Morgana",
+      "Sentinel",
+      "Taric"
+    ],
+    "carries": [
+      "Ahri",
+      "Sentinel"
+    ],
+    "mid": [
+      "Rakan",
+      "Yorick",
+      "Karma",
+      "Leblanc",
+      "Yunara"
+    ],
+    "carrousel": [
+      {
+        "item": "Invoker Emblem",
+        "component": "Frying Pan",
+        "shadow": false
+      },
+      {
+        "item": "Invoker Emblem",
+        "component": "Tear of the Goddess",
+        "shadow": false
+      },
+      {
+        "item": "Jeweled Gauntlet",
+        "component": "Needlessly Large Rod",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Karma",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Pebbles",
+        "items": [],
+        "row": 3,
+        "col": 5
+      },
+      {
+        "name": "Krug",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Sett",
+        "items": [],
+        "row": 0,
+        "col": 4
+      },
+      {
+        "name": "Ahri",
+        "items": [
+          "Invoker Emblem",
+          "Jeweled Gauntlet",
+          "Striker's Flail"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Morgana",
+        "items": [],
+        "row": 1,
+        "col": 4
+      },
+      {
+        "name": "Sentinel",
+        "items": [
+          "Protector's Vow",
+          "Protector's Vow",
+          "Sunfire Cape"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Taric",
+        "items": [],
+        "row": 0,
+        "col": 2
+      }
+    ]
+  },
+  {
+    "name": "Primal Hunters",
+    "tier": 1,
+    "playstyle": "Fast 8",
+    "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+    "units": [
+      "Shen",
+      "Tristana",
+      "Vi",
+      "Amumu",
+      "Lillia",
+      "Sivir",
+      "Ashe",
+      "Kennen"
+    ],
+    "carries": [
+      "Amumu",
+      "Sivir"
+    ],
+    "mid": [
+      "Camille",
+      "Rakan",
+      "Caitlyn",
+      "Elise",
+      "Tristana"
+    ],
+    "carrousel": [
+      {
+        "item": "Infinity Edge",
+        "component": "B.F. Sword",
+        "shadow": false
+      },
+      {
+        "item": "Infinity Edge",
+        "component": "Sparring Gloves",
+        "shadow": false
+      },
+      {
+        "item": "Striker's Flail",
+        "component": "Giant's Belt",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Shen",
+        "items": [],
+        "row": 0,
+        "col": 1
+      },
+      {
+        "name": "Tristana",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Vi",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Amumu",
+        "items": [
+          "Gargoyle Stoneplate",
+          "Spirit Visage",
+          "Warmog's Armor"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Lillia",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Sivir",
+        "items": [
+          "Infinity Edge",
+          "Spear of Shojin",
+          "Striker's Flail"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Ashe",
+        "items": [],
+        "row": 3,
+        "col": 5
+      },
+      {
+        "name": "Kennen",
+        "items": [],
+        "row": 0,
+        "col": 4
+      }
+    ]
+  },
+  {
+    "name": "Lunar Rapidfire",
+    "tier": 1,
+    "playstyle": "Fast 8",
+    "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+    "units": [
+      "Varus",
+      "Diana",
+      "Kogmaw",
+      "Vi",
+      "Amumu",
+      "Aphelios",
+      "Nidalee",
+      "Sentinel"
+    ],
+    "carries": [
+      "Aphelios",
+      "Sentinel"
+    ],
+    "mid": [
+      "Ornn",
+      "Rakan",
+      "Varus",
+      "Xayah",
+      "Hecarim"
+    ],
+    "carrousel": [
+      {
+        "item": "Guinsoo's Rageblade",
+        "component": "Recurve Bow",
+        "shadow": false
+      },
+      {
+        "item": "Guinsoo's Rageblade",
+        "component": "Needlessly Large Rod",
+        "shadow": false
+      },
+      {
+        "item": "Deathblade",
+        "component": "B.F. Sword",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Varus",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Diana",
+        "items": [],
+        "row": 0,
+        "col": 4
+      },
+      {
+        "name": "Kogmaw",
+        "items": [],
+        "row": 3,
+        "col": 5
+      },
+      {
+        "name": "Vi",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Amumu",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Aphelios",
+        "items": [
+          "Deathblade",
+          "Guinsoo's Rageblade",
+          "Infinity Edge"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Nidalee",
+        "items": [],
+        "row": 2,
+        "col": 6
+      },
+      {
+        "name": "Sentinel",
+        "items": [
+          "Protector's Vow",
+          "Protector's Vow",
+          "Protector's Vow"
+        ],
+        "row": 0,
+        "col": 5
+      }
+    ]
+  },
+  {
+    "name": "Elderwood Executioners",
+    "tier": 1,
+    "playstyle": "Fast 9",
+    "description": "Level 9 early in Stage 5 to find 5 cost units. Need long win/lose streaks or econ augments.",
+    "units": [
+      "Alistar",
+      "Amumu",
+      "Ezreal",
+      "Draven",
+      "Gnar",
+      "Ivern",
+      "Kennen",
+      "Maokai",
+      "Taric"
+    ],
+    "carries": [
+      "Draven",
+      "Maokai"
+    ],
+    "mid": [
+      "Ornn",
+      "Varus",
+      "Xayah",
+      "Alistar",
+      "Shen"
+    ],
+    "carrousel": [
+      {
+        "item": "Infinity Edge",
+        "component": "B.F. Sword",
+        "shadow": false
+      },
+      {
+        "item": "Infinity Edge",
+        "component": "Sparring Gloves",
+        "shadow": false
+      },
+      {
+        "item": "Spear of Shojin",
+        "component": "Tear of the Goddess",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Alistar",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Amumu",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Ezreal",
+        "items": [],
+        "row": 3,
+        "col": 5
+      },
+      {
+        "name": "Draven",
+        "items": [
+          "Deathblade",
+          "Guinsoo's Rageblade",
+          "Kraken's Fury"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Gnar",
+        "items": [],
+        "row": 0,
+        "col": 4
+      },
+      {
+        "name": "Ivern",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Kennen",
+        "items": [],
+        "row": 0,
+        "col": 6
+      },
+      {
+        "name": "Maokai",
+        "items": [
+          "Gargoyle Stoneplate",
+          "Protector's Vow",
+          "Spirit Visage"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Taric",
+        "items": [],
+        "row": 0,
+        "col": 1
+      }
+    ]
+  },
+  {
+    "name": "Consuming Flora",
+    "tier": 1,
+    "playstyle": "Slow Roll (5)",
+    "description": "3-star units at level 5 by rolling your excess gold every round.",
+    "units": [
+      "Kobuko",
+      "RekSai",
+      "Veigar",
+      "Teemo",
+      "Fiddlesticks",
+      "Rammus",
+      "Sett",
+      "Gnar"
+    ],
+    "carries": [
+      "RekSai",
+      "Veigar"
+    ],
+    "mid": [
+      "Kobuko",
+      "RekSai",
+      "Veigar",
+      "Teemo",
+      "Fiddlesticks"
+    ],
+    "carrousel": [
+      {
+        "item": "Jeweled Gauntlet",
+        "component": "Needlessly Large Rod",
+        "shadow": false
+      },
+      {
+        "item": "Jeweled Gauntlet",
+        "component": "Sparring Gloves",
+        "shadow": false
+      },
+      {
+        "item": "Blue Buff",
+        "component": "Tear of the Goddess",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Kobuko",
+        "items": [],
+        "row": 2,
+        "col": 3
+      },
+      {
+        "name": "RekSai",
+        "items": [
+          "Gargoyle Stoneplate",
+          "Sunfire Cape",
+          "Warmog's Armor"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Veigar",
+        "items": [
+          "Blue Buff",
+          "Jeweled Gauntlet"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Teemo",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Fiddlesticks",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Rammus",
+        "items": [],
+        "row": 0,
+        "col": 1
+      },
+      {
+        "name": "Sett",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Gnar",
+        "items": [],
+        "row": 0,
+        "col": 4
+      }
+    ]
+  },
+  {
+    "name": "Elderwood Spellweavers",
+    "tier": 2,
+    "playstyle": "Fast 8",
+    "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+    "units": [
+      "Ornn",
+      "Yunara",
+      "Fiddlesticks",
+      "Ahri",
+      "Ezreal",
+      "Sett",
+      "Soraka",
+      "Gnar"
+    ],
+    "carries": [
+      "Ahri",
+      "Sett"
+    ],
+    "mid": [
+      "Karma",
+      "Rakan",
+      "Yorick",
+      "Yunara",
+      "Azir"
+    ],
+    "carrousel": [
+      {
+        "item": "Executioner Emblem",
+        "component": "Spatula",
+        "shadow": false
+      },
+      {
+        "item": "Spear of Shojin",
+        "component": "Tear of the Goddess",
+        "shadow": false
+      },
+      {
+        "item": "Spear of Shojin",
+        "component": "B.F. Sword",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Ornn",
+        "items": [],
+        "row": 2,
+        "col": 4
+      },
+      {
+        "name": "Yunara",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Fiddlesticks",
+        "items": [],
+        "row": 2,
+        "col": 6
+      },
+      {
+        "name": "Ahri",
+        "items": [
+          "Executioner Emblem",
+          "Jeweled Gauntlet",
+          "Spear of Shojin"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Ezreal",
+        "items": [],
+        "row": 3,
+        "col": 4
+      },
+      {
+        "name": "Sett",
+        "items": [
+          "Gargoyle Stoneplate",
+          "Sunfire Cape",
+          "Warmog's Armor"
+        ],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Soraka",
+        "items": [],
+        "row": 3,
+        "col": 5
+      },
+      {
+        "name": "Gnar",
+        "items": [],
+        "row": 2,
+        "col": 5
+      }
+    ]
+  },
+  {
+    "name": "Spellweaver Defenders",
+    "tier": 2,
+    "playstyle": "Slow Roll (7)",
+    "description": "3-star units at level 7 by rolling your excess gold every round.",
+    "units": [
+      "Leona",
+      "Ornn",
+      "Shen",
+      "Cassiopeia",
+      "Fiddlesticks",
+      "Rammus",
+      "Lillia",
+      "Soraka"
+    ],
+    "carries": [
+      "Cassiopeia",
+      "Fiddlesticks"
+    ],
+    "mid": [
+      "Leona",
+      "Ornn",
+      "Shen",
+      "Cassiopeia",
+      "Fiddlesticks"
+    ],
+    "carrousel": [
+      {
+        "item": "Archangel's Staff",
+        "component": "Tear of the Goddess",
+        "shadow": false
+      },
+      {
+        "item": "Archangel's Staff",
+        "component": "Needlessly Large Rod",
+        "shadow": false
+      },
+      {
+        "item": "Hextech Gunblade",
+        "component": "B.F. Sword",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Leona",
+        "items": [],
+        "row": 0,
+        "col": 6
+      },
+      {
+        "name": "Ornn",
+        "items": [],
+        "row": 0,
+        "col": 1
+      },
+      {
+        "name": "Shen",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Cassiopeia",
+        "items": [
+          "Archangel's Staff",
+          "Blue Buff",
+          "Hextech Gunblade"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Fiddlesticks",
+        "items": [
+          "Gargoyle Stoneplate",
+          "Spirit Visage",
+          "Sunfire Cape"
+        ],
+        "row": 0,
+        "col": 4
+      },
+      {
+        "name": "Rammus",
+        "items": [],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Lillia",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Soraka",
+        "items": [],
+        "row": 3,
+        "col": 0
+      }
+    ]
+  },
+  {
+    "name": "Invoker Vanguards",
+    "tier": 2,
+    "playstyle": "Fast 8",
+    "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+    "units": [
+      "Rakan",
+      "Diana",
+      "Kogmaw",
+      "Vi",
+      "Morgana",
+      "Nidalee",
+      "Sentinel",
+      "Taric"
+    ],
+    "carries": [
+      "Morgana",
+      "Nidalee",
+      "Sentinel"
+    ],
+    "mid": [
+      "Camille",
+      "Rakan",
+      "Caitlyn",
+      "Elise",
+      "Kogmaw"
+    ],
+    "carrousel": [
+      {
+        "item": "Guinsoo's Rageblade",
+        "component": "Needlessly Large Rod",
+        "shadow": false
+      },
+      {
+        "item": "Guinsoo's Rageblade",
+        "component": "Recurve Bow",
+        "shadow": false
+      },
+      {
+        "item": "Jeweled Gauntlet",
+        "component": "Sparring Gloves",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Rakan",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Diana",
+        "items": [],
+        "row": 0,
+        "col": 4
+      },
+      {
+        "name": "Kogmaw",
+        "items": [],
+        "row": 3,
+        "col": 5
+      },
+      {
+        "name": "Vi",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Morgana",
+        "items": [
+          "Morellonomicon",
+          "Void Staff"
+        ],
+        "row": 1,
+        "col": 4
+      },
+      {
+        "name": "Nidalee",
+        "items": [
+          "Guinsoo's Rageblade",
+          "Jeweled Gauntlet"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Sentinel",
+        "items": [
+          "Protector's Vow",
+          "Protector's Vow"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Taric",
+        "items": [],
+        "row": 0,
+        "col": 1
+      }
+    ]
+  },
+  {
+    "name": "Caustic Adaptors",
+    "tier": 2,
+    "playstyle": "Slow Roll (7)",
+    "description": "3-star units at level 7 by rolling your excess gold every round.",
+    "units": [
+      "Yorick",
+      "Kogmaw",
+      "Krug",
+      "Master Yi",
+      "Vi",
+      "Nidalee",
+      "Sett",
+      "Gnar"
+    ],
+    "carries": [
+      "Kogmaw",
+      "Master Yi"
+    ],
+    "mid": [
+      "Yorick",
+      "Karma",
+      "Gromp",
+      "Master Yi",
+      "Vi"
+    ],
+    "carrousel": [
+      {
+        "item": "Guinsoo's Rageblade",
+        "component": "Recurve Bow",
+        "shadow": false
+      },
+      {
+        "item": "Guinsoo's Rageblade",
+        "component": "Needlessly Large Rod",
+        "shadow": false
+      },
+      {
+        "item": "Edge of Night",
+        "component": "B.F. Sword",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Yorick",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Kogmaw",
+        "items": [
+          "Infinity Edge",
+          "Red Buff",
+          "Spear of Shojin"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Krug",
+        "items": [],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Master Yi",
+        "items": [
+          "Edge of Night",
+          "Guinsoo's Rageblade",
+          "Titan's Resolve"
+        ],
+        "row": 0,
+        "col": 4
+      },
+      {
+        "name": "Vi",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Nidalee",
+        "items": [],
+        "row": 3,
+        "col": 5
+      },
+      {
+        "name": "Sett",
+        "items": [],
+        "row": 0,
+        "col": 1
+      },
+      {
+        "name": "Gnar",
+        "items": [],
+        "row": 1,
+        "col": 4
+      }
+    ]
+  },
+  {
+    "name": "Riftbeasts Reroll",
+    "tier": 2,
+    "playstyle": "Slow Roll (5)",
+    "description": "3-star units at level 5 by rolling your excess gold every round.",
+    "units": [
+      "Cinderling",
+      "Krug",
+      "Pebbles",
+      "Murkwolf",
+      "Scuttlecrab",
+      "Brambleback",
+      "Sentinel",
+      "Gnar"
+    ],
+    "carries": [
+      "Cinderling",
+      "Krug",
+      "Pebbles"
+    ],
+    "mid": [
+      "Pebbles",
+      "Cinderling",
+      "Murkwolf",
+      "Scuttlecrab",
+      "Krug"
+    ],
+    "carrousel": [
+      {
+        "item": "Blue Buff",
+        "component": "Tear of the Goddess",
+        "shadow": false
+      },
+      {
+        "item": "Jeweled Gauntlet",
+        "component": "Sparring Gloves",
+        "shadow": false
+      },
+      {
+        "item": "Jeweled Gauntlet",
+        "component": "Needlessly Large Rod",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Cinderling",
+        "items": [
+          "Blue Buff",
+          "Last Whisper"
+        ],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Krug",
+        "items": [
+          "Gargoyle Stoneplate",
+          "Warmog's Armor"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Pebbles",
+        "items": [
+          "Blue Buff",
+          "Jeweled Gauntlet"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Murkwolf",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Scuttlecrab",
+        "items": [],
+        "row": 0,
+        "col": 1
+      },
+      {
+        "name": "Brambleback",
+        "items": [],
+        "row": 0,
+        "col": 4
+      },
+      {
+        "name": "Sentinel",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Gnar",
+        "items": [],
+        "row": 1,
+        "col": 4
+      }
+    ]
+  },
+  {
+    "name": "Elderwood Rapidfire",
+    "tier": 2,
+    "playstyle": "Fast 8",
+    "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+    "units": [
+      "Ornn",
+      "Xayah",
+      "Alistar",
+      "Leblanc",
+      "Aphelios",
+      "Lillia",
+      "Alune",
+      "Gnar"
+    ],
+    "carries": [
+      "Aphelios",
+      "Lillia"
+    ],
+    "mid": [
+      "Ornn",
+      "Varus",
+      "Xayah",
+      "Alistar",
+      "Shen"
+    ],
+    "carrousel": [
+      {
+        "item": "Guinsoo's Rageblade",
+        "component": "Recurve Bow",
+        "shadow": false
+      },
+      {
+        "item": "Guinsoo's Rageblade",
+        "component": "Needlessly Large Rod",
+        "shadow": false
+      },
+      {
+        "item": "Infinity Edge",
+        "component": "B.F. Sword",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Ornn",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Xayah",
+        "items": [],
+        "row": 3,
+        "col": 5
+      },
+      {
+        "name": "Alistar",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Leblanc",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Aphelios",
+        "items": [
+          "Guinsoo's Rageblade",
+          "Infinity Edge",
+          "Kraken's Fury"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Lillia",
+        "items": [
+          "Gargoyle Stoneplate",
+          "Spirit Visage",
+          "Warmog's Armor"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Alune",
+        "items": [],
+        "row": 3,
+        "col": 4
+      },
+      {
+        "name": "Gnar",
+        "items": [],
+        "row": 0,
+        "col": 4
+      }
+    ]
+  },
+  {
+    "name": "Primal Adaptors",
+    "tier": 2,
+    "playstyle": "Fast 8",
+    "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+    "units": [
+      "Akali",
+      "Diana",
+      "Kogmaw",
+      "Master Yi",
+      "Vi",
+      "Amumu",
+      "Nidalee",
+      "Sentinel"
+    ],
+    "carries": [
+      "Amumu",
+      "Nidalee"
+    ],
+    "mid": [
+      "Akali",
+      "Ornn",
+      "Varus",
+      "Shen",
+      "Master Yi"
+    ],
+    "carrousel": [
+      {
+        "item": "Jeweled Gauntlet",
+        "component": "Needlessly Large Rod",
+        "shadow": false
+      },
+      {
+        "item": "Jeweled Gauntlet",
+        "component": "Sparring Gloves",
+        "shadow": false
+      },
+      {
+        "item": "Nashor's Tooth",
+        "component": "Recurve Bow",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Akali",
+        "items": [],
+        "row": 0,
+        "col": 6
+      },
+      {
+        "name": "Diana",
+        "items": [],
+        "row": 0,
+        "col": 1
+      },
+      {
+        "name": "Kogmaw",
+        "items": [],
+        "row": 3,
+        "col": 5
+      },
+      {
+        "name": "Master Yi",
+        "items": [],
+        "row": 0,
+        "col": 4
+      },
+      {
+        "name": "Vi",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Amumu",
+        "items": [
+          "Gargoyle Stoneplate",
+          "Spirit Visage",
+          "Warmog's Armor"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Nidalee",
+        "items": [
+          "Jeweled Gauntlet",
+          "Nashor's Tooth",
+          "Nashor's Tooth"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Sentinel",
+        "items": [],
+        "row": 0,
+        "col": 3
+      }
+    ]
+  },
+  {
+    "name": "Juggernaut Summoners",
+    "tier": 2,
+    "playstyle": "Fast 8",
+    "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+    "units": [
+      "Yorick",
+      "Azir",
+      "Fiddlesticks",
+      "Amumu",
+      "Malphite",
+      "Soraka",
+      "Zyra",
+      "Kennen"
+    ],
+    "carries": [
+      "Malphite",
+      "Zyra"
+    ],
+    "mid": [
+      "Kobuko",
+      "RekSai",
+      "Pebbles",
+      "Veigar",
+      "Teemo"
+    ],
+    "carrousel": [
+      {
+        "item": "Morellonomicon",
+        "component": "Needlessly Large Rod",
+        "shadow": false
+      },
+      {
+        "item": "Morellonomicon",
+        "component": "Giant's Belt",
+        "shadow": false
+      },
+      {
+        "item": "Void Staff",
+        "component": "Recurve Bow",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Yorick",
+        "items": [],
+        "row": 2,
+        "col": 3
+      },
+      {
+        "name": "Azir",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Fiddlesticks",
+        "items": [],
+        "row": 2,
+        "col": 6
+      },
+      {
+        "name": "Amumu",
+        "items": [],
+        "row": 2,
+        "col": 5
+      },
+      {
+        "name": "Malphite",
+        "items": [
+          "Gargoyle Stoneplate",
+          "Protector's Vow",
+          "Warmog's Armor"
+        ],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Soraka",
+        "items": [],
+        "row": 3,
+        "col": 5
+      },
+      {
+        "name": "Zyra",
+        "items": [
+          "Morellonomicon",
+          "Spear of Shojin",
+          "Void Staff"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Kennen",
+        "items": [],
+        "row": 2,
+        "col": 4
+      }
+    ]
+  },
+  {
+    "name": "Flora Executioners",
+    "tier": 2,
+    "playstyle": "Fast 8",
+    "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+    "units": [
+      "Yorick",
+      "Azir",
+      "Fiddlesticks",
+      "Amumu",
+      "Malphite",
+      "Soraka",
+      "Zyra",
+      "Kennen"
+    ],
+    "carries": [
+      "Malphite",
+      "Soraka"
+    ],
+    "mid": [
+      "Kobuko",
+      "RekSai",
+      "Pebbles",
+      "Veigar",
+      "Teemo"
+    ],
+    "carrousel": [
+      {
+        "item": "Jeweled Gauntlet",
+        "component": "Needlessly Large Rod",
+        "shadow": false
+      },
+      {
+        "item": "Jeweled Gauntlet",
+        "component": "Sparring Gloves",
+        "shadow": false
+      },
+      {
+        "item": "Nashor's Tooth",
+        "component": "Recurve Bow",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Yorick",
+        "items": [],
+        "row": 2,
+        "col": 3
+      },
+      {
+        "name": "Azir",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Fiddlesticks",
+        "items": [],
+        "row": 2,
+        "col": 6
+      },
+      {
+        "name": "Amumu",
+        "items": [],
+        "row": 2,
+        "col": 5
+      },
+      {
+        "name": "Malphite",
+        "items": [
+          "Gargoyle Stoneplate",
+          "Protector's Vow",
+          "Warmog's Armor"
+        ],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Soraka",
+        "items": [
+          "Jeweled Gauntlet",
+          "Nashor's Tooth",
+          "Nashor's Tooth"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Zyra",
+        "items": [],
+        "row": 3,
+        "col": 5
+      },
+      {
+        "name": "Kennen",
+        "items": [],
+        "row": 2,
+        "col": 4
+      }
+    ]
+  },
+  {
+    "name": "Fae Hunters",
+    "tier": 2,
+    "playstyle": "Slow Roll (7)",
+    "description": "3-star units at level 7 by rolling your excess gold every round.",
+    "units": [
+      "Rakan",
+      "Xayah",
+      "Rammus",
+      "Tristana",
+      "Vi",
+      "Sivir",
+      "Lillia",
+      "Gnar"
+    ],
+    "carries": [
+      "Rammus",
+      "Tristana",
+      "Sivir"
+    ],
+    "mid": [
+      "Kobuko",
+      "Rakan",
+      "Xayah",
+      "Rammus",
+      "Tristana"
+    ],
+    "carrousel": [
+      {
+        "item": "Infinity Edge",
+        "component": "B.F. Sword",
+        "shadow": false
+      },
+      {
+        "item": "Infinity Edge",
+        "component": "Sparring Gloves",
+        "shadow": false
+      },
+      {
+        "item": "Guinsoo's Rageblade",
+        "component": "Recurve Bow",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Rakan",
+        "items": [],
+        "row": 0,
+        "col": 1
+      },
+      {
+        "name": "Xayah",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Rammus",
+        "items": [
+          "Gargoyle Stoneplate",
+          "Sunfire Cape",
+          "Warmog's Armor"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Tristana",
+        "items": [
+          "Giant Slayer",
+          "Guinsoo's Rageblade",
+          "Kraken's Fury"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Vi",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Sivir",
+        "items": [
+          "Last Whisper"
+        ],
+        "row": 3,
+        "col": 5
+      },
+      {
+        "name": "Lillia",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Gnar",
+        "items": [],
+        "row": 0,
+        "col": 4
+      }
+    ]
+  },
+  {
+    "name": "Sprykin Hunters",
+    "tier": 2,
+    "playstyle": "Slow Roll (7)",
+    "description": "3-star units at level 7 by rolling your excess gold every round.",
+    "units": [
+      "Kobuko",
+      "Teemo",
+      "Rammus",
+      "Tristana",
+      "Sentinel",
+      "Lillia",
+      "Ashe",
+      "Gnar"
+    ],
+    "carries": [
+      "Rammus",
+      "Tristana"
+    ],
+    "mid": [
+      "Kobuko",
+      "Veigar",
+      "Teemo",
+      "Rammus",
+      "Tristana"
+    ],
+    "carrousel": [
+      {
+        "item": "Infinity Edge",
+        "component": "B.F. Sword",
+        "shadow": false
+      },
+      {
+        "item": "Infinity Edge",
+        "component": "Sparring Gloves",
+        "shadow": false
+      },
+      {
+        "item": "Guinsoo's Rageblade",
+        "component": "Recurve Bow",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Kobuko",
+        "items": [],
+        "row": 0,
+        "col": 1
+      },
+      {
+        "name": "Teemo",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Rammus",
+        "items": [
+          "Gargoyle Stoneplate",
+          "Sunfire Cape",
+          "Warmog's Armor"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Tristana",
+        "items": [
+          "Guinsoo's Rageblade",
+          "Infinity Edge",
+          "Kraken's Fury"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Sentinel",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Lillia",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Ashe",
+        "items": [],
+        "row": 3,
+        "col": 5
+      },
+      {
+        "name": "Gnar",
+        "items": [],
+        "row": 0,
+        "col": 4
+      }
+    ]
+  },
+  {
+    "name": "Sprykin Invokers",
+    "tier": 2,
+    "playstyle": "Slow Roll (6)",
+    "description": "3-star units at level 6 by rolling your excess gold every round.",
+    "units": [
+      "Kobuko",
+      "Teemo",
+      "Rammus",
+      "Tristana",
+      "Sentinel",
+      "Lillia",
+      "Gnar",
+      "Taric"
+    ],
+    "carries": [
+      "Teemo",
+      "Sentinel"
+    ],
+    "mid": [
+      "Kobuko",
+      "Pebbles",
+      "Shen",
+      "Teemo",
+      "Rammus"
+    ],
+    "carrousel": [
+      {
+        "item": "Jeweled Gauntlet",
+        "component": "Needlessly Large Rod",
+        "shadow": false
+      },
+      {
+        "item": "Jeweled Gauntlet",
+        "component": "Sparring Gloves",
+        "shadow": false
+      },
+      {
+        "item": "Nashor's Tooth",
+        "component": "Recurve Bow",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Kobuko",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Teemo",
+        "items": [
+          "Jeweled Gauntlet",
+          "Nashor's Tooth",
+          "Nashor's Tooth"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Rammus",
+        "items": [],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Tristana",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Sentinel",
+        "items": [
+          "Protector's Vow",
+          "Protector's Vow",
+          "Sunfire Cape"
+        ],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Lillia",
+        "items": [],
+        "row": 0,
+        "col": 4
+      },
+      {
+        "name": "Gnar",
+        "items": [],
+        "row": 1,
+        "col": 4
+      },
+      {
+        "name": "Taric",
+        "items": [],
+        "row": 0,
+        "col": 1
+      }
+    ]
+  },
+  {
+    "name": "Rivals Khazix",
+    "tier": 2,
+    "playstyle": "Slow Roll (7)",
+    "description": "3-star units at level 7 by rolling your excess gold every round.",
+    "units": [
+      "Diana",
+      "Hecarim",
+      "Mama Beak",
+      "Khazix",
+      "Aphelios",
+      "Brambleback",
+      "Sentinel",
+      "Taric"
+    ],
+    "carries": [
+      "Hecarim",
+      "Khazix"
+    ],
+    "mid": [
+      "Akali",
+      "Gromp",
+      "Murkwolf",
+      "Scuttlecrab",
+      "Khazix"
+    ],
+    "carrousel": [
+      {
+        "item": "Edge of Night",
+        "component": "B.F. Sword",
+        "shadow": false
+      },
+      {
+        "item": "Edge of Night",
+        "component": "Chain Vest",
+        "shadow": false
+      },
+      {
+        "item": "Jeweled Gauntlet",
+        "component": "Needlessly Large Rod",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Diana",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Hecarim",
+        "items": [
+          "Gargoyle Stoneplate",
+          "Sunfire Cape",
+          "Warmog's Armor"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Mama Beak",
+        "items": [],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Khazix",
+        "items": [
+          "Edge of Night",
+          "Hand of Justice",
+          "Jeweled Gauntlet"
+        ],
+        "row": 1,
+        "col": 6
+      },
+      {
+        "name": "Aphelios",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Brambleback",
+        "items": [],
+        "row": 0,
+        "col": 4
+      },
+      {
+        "name": "Sentinel",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Taric",
+        "items": [],
+        "row": 0,
+        "col": 1
+      }
+    ]
+  },
+  {
+    "name": "Solar Rapidfire",
+    "tier": 2,
+    "playstyle": "Slow Roll (6)",
+    "description": "3-star units at level 6 by rolling your excess gold every round.",
+    "units": [
+      "Leona",
+      "Varus",
+      "Kayle",
+      "Sejuani",
+      "Shen",
+      "Diana",
+      "Aphelios",
+      "Alune"
+    ],
+    "carries": [
+      "Kayle",
+      "Sejuani"
+    ],
+    "mid": [
+      "Leona",
+      "Varus",
+      "Kayle",
+      "Sejuani",
+      "Shen"
+    ],
+    "carrousel": [
+      {
+        "item": "Guinsoo's Rageblade",
+        "component": "Recurve Bow",
+        "shadow": false
+      },
+      {
+        "item": "Guinsoo's Rageblade",
+        "component": "Needlessly Large Rod",
+        "shadow": false
+      },
+      {
+        "item": "Jeweled Gauntlet",
+        "component": "Sparring Gloves",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Leona",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Varus",
+        "items": [],
+        "row": 3,
+        "col": 2
+      },
+      {
+        "name": "Kayle",
+        "items": [
+          "Guinsoo's Rageblade",
+          "Guinsoo's Rageblade",
+          "Jeweled Gauntlet"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Sejuani",
+        "items": [
+          "Gargoyle Stoneplate",
+          "Spirit Visage",
+          "Warmog's Armor"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Shen",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Diana",
+        "items": [],
+        "row": 0,
+        "col": 4
+      },
+      {
+        "name": "Aphelios",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Alune",
+        "items": [],
+        "row": 3,
+        "col": 4
+      }
+    ]
+  },
+  {
+    "name": "Coven Invokers",
+    "tier": 2,
+    "playstyle": "Fast 8",
+    "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+    "units": [
+      "Pebbles",
+      "Diana",
+      "Hecarim",
+      "Kogmaw",
+      "Brambleback",
+      "Morgana",
+      "Sentinel",
+      "Taric"
+    ],
+    "carries": [
+      "Morgana",
+      "Sentinel"
+    ],
+    "mid": [
+      "Camille",
+      "Rakan",
+      "Caitlyn",
+      "Elise",
+      "Cassiopeia"
+    ],
+    "carrousel": [
+      {
+        "item": "Morellonomicon",
+        "component": "Needlessly Large Rod",
+        "shadow": false
+      },
+      {
+        "item": "Morellonomicon",
+        "component": "Giant's Belt",
+        "shadow": false
+      },
+      {
+        "item": "Void Staff",
+        "component": "Tear of the Goddess",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Pebbles",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Diana",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Hecarim",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Kogmaw",
+        "items": [],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Brambleback",
+        "items": [],
+        "row": 0,
+        "col": 4
+      },
+      {
+        "name": "Morgana",
+        "items": [
+          "Morellonomicon",
+          "Rabadon's Deathcap",
+          "Void Staff"
+        ],
+        "row": 1,
+        "col": 4
+      },
+      {
+        "name": "Sentinel",
+        "items": [
+          "Protector's Vow",
+          "Protector's Vow",
+          "Protector's Vow"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Taric",
+        "items": [],
+        "row": 0,
+        "col": 1
+      }
+    ]
+  },
+  {
+    "name": "Unrivaled",
+    "tier": 2,
+    "playstyle": "Slow Roll (7)",
+    "description": "3-star units at level 7 by rolling your excess gold every round.",
+    "units": [
+      "Leblanc",
+      "Diana",
+      "Hecarim",
+      "Khazix",
+      "Rengar",
+      "Aphelios",
+      "Ezreal",
+      "Alune"
+    ],
+    "carries": [
+      "Hecarim",
+      "Khazix",
+      "Rengar"
+    ],
+    "mid": [
+      "Ornn",
+      "Alistar",
+      "Leblanc",
+      "Khazix",
+      "Rengar"
+    ],
+    "carrousel": [
+      {
+        "item": "Edge of Night",
+        "component": "B.F. Sword",
+        "shadow": false
+      },
+      {
+        "item": "Edge of Night",
+        "component": "Chain Vest",
+        "shadow": false
+      },
+      {
+        "item": "Hand of Justice",
+        "component": "Sparring Gloves",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Leblanc",
+        "items": [],
+        "row": 3,
+        "col": 5
+      },
+      {
+        "name": "Diana",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Hecarim",
+        "items": [
+          "Gargoyle Stoneplate"
+        ],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Khazix",
+        "items": [
+          "Edge of Night",
+          "Hand of Justice",
+          "Rabadon's Deathcap"
+        ],
+        "row": 2,
+        "col": 0
+      },
+      {
+        "name": "Rengar",
+        "items": [
+          "Edge of Night",
+          "Guinsoo's Rageblade",
+          "Titan's Resolve"
+        ],
+        "row": 2,
+        "col": 1
+      },
+      {
+        "name": "Aphelios",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Ezreal",
+        "items": [],
+        "row": 3,
+        "col": 1
+      },
+      {
+        "name": "Alune",
+        "items": [],
+        "row": 3,
+        "col": 6
+      }
+    ]
+  },
+  {
+    "name": "Rivals Rengar",
+    "tier": 2,
+    "playstyle": "Slow Roll (7)",
+    "description": "3-star units at level 7 by rolling your excess gold every round.",
+    "units": [
+      "Diana",
+      "Hecarim",
+      "Mama Beak",
+      "Rengar",
+      "Aphelios",
+      "Brambleback",
+      "Sentinel",
+      "Taric"
+    ],
+    "carries": [
+      "Hecarim",
+      "Rengar"
+    ],
+    "mid": [
+      "Akali",
+      "Gromp",
+      "Murkwolf",
+      "Scuttlecrab",
+      "Rengar"
+    ],
+    "carrousel": [
+      {
+        "item": "Edge of Night",
+        "component": "B.F. Sword",
+        "shadow": false
+      },
+      {
+        "item": "Edge of Night",
+        "component": "Chain Vest",
+        "shadow": false
+      },
+      {
+        "item": "Guinsoo's Rageblade",
+        "component": "Recurve Bow",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Diana",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Hecarim",
+        "items": [
+          "Gargoyle Stoneplate",
+          "Sunfire Cape",
+          "Warmog's Armor"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Mama Beak",
+        "items": [],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Rengar",
+        "items": [
+          "Edge of Night",
+          "Guinsoo's Rageblade",
+          "Titan's Resolve"
+        ],
+        "row": 0,
+        "col": 4
+      },
+      {
+        "name": "Aphelios",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Brambleback",
+        "items": [],
+        "row": 0,
+        "col": 4
+      },
+      {
+        "name": "Sentinel",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Taric",
+        "items": [],
+        "row": 0,
+        "col": 1
+      }
+    ]
+  },
+  {
+    "name": "Fae Spellweavers",
+    "tier": 2,
+    "playstyle": "Fast 8",
+    "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+    "units": [
+      "Karma",
+      "Rakan",
+      "Yorick",
+      "Diana",
+      "Fiddlesticks",
+      "Ahri",
+      "Lillia",
+      "Alune"
+    ],
+    "carries": [
+      "Ahri",
+      "Lillia"
+    ],
+    "mid": [
+      "Karma",
+      "Rakan",
+      "Yorick",
+      "Yunara",
+      "Azir"
+    ],
+    "carrousel": [
+      {
+        "item": "Jeweled Gauntlet",
+        "component": "Needlessly Large Rod",
+        "shadow": false
+      },
+      {
+        "item": "Jeweled Gauntlet",
+        "component": "Sparring Gloves",
+        "shadow": false
+      },
+      {
+        "item": "Nashor's Tooth",
+        "component": "Recurve Bow",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Karma",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Rakan",
+        "items": [],
+        "row": 0,
+        "col": 1
+      },
+      {
+        "name": "Yorick",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Diana",
+        "items": [],
+        "row": 0,
+        "col": 4
+      },
+      {
+        "name": "Fiddlesticks",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Ahri",
+        "items": [
+          "Jeweled Gauntlet",
+          "Nashor's Tooth",
+          "Nashor's Tooth"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Lillia",
+        "items": [
+          "Ionic Spark",
+          "Sunfire Cape",
+          "Warmog's Armor"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Alune",
+        "items": [],
+        "row": 3,
+        "col": 5
+      }
+    ]
+  },
+  {
+    "name": "Apex Predator",
+    "tier": 2,
+    "playstyle": "Fast 9",
+    "description": "Level 9 early in Stage 5 to find 5 cost units. Need long win/lose streaks or econ augments.",
+    "units": [
+      "Pebbles",
+      "Murkwolf",
+      "Krug",
+      "Brambleback",
+      "Sentinel",
+      "Elder Dragon",
+      "Gnar",
+      "Taric"
+    ],
+    "carries": [
+      "Sentinel",
+      "Elder Dragon"
+    ],
+    "mid": [
+      "Cinderling",
+      "Pebbles",
+      "Gromp",
+      "Scuttlecrab",
+      "Krug"
+    ],
+    "carrousel": [
+      {
+        "item": "Infinity Edge",
+        "component": "B.F. Sword",
+        "shadow": false
+      },
+      {
+        "item": "Infinity Edge",
+        "component": "Sparring Gloves",
+        "shadow": false
+      },
+      {
+        "item": "Last Whisper",
+        "component": "Recurve Bow",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Pebbles",
+        "items": [],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Murkwolf",
+        "items": [],
+        "row": 0,
+        "col": 6
+      },
+      {
+        "name": "Krug",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Brambleback",
+        "items": [],
+        "row": 0,
+        "col": 4
+      },
+      {
+        "name": "Sentinel",
+        "items": [
+          "Protector's Vow",
+          "Protector's Vow",
+          "Sunfire Cape"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Elder Dragon",
+        "items": [
+          "Infinity Edge",
+          "Last Whisper",
+          "Striker's Flail"
+        ],
+        "row": 2,
+        "col": 6
+      },
+      {
+        "name": "Gnar",
+        "items": [],
+        "row": 1,
+        "col": 4
+      },
+      {
+        "name": "Taric",
+        "items": [],
+        "row": 0,
+        "col": 2
+      }
+    ]
+  },
+  {
+    "name": "Blackthorn Sprykin",
+    "tier": 2,
+    "playstyle": "Slow Roll (5)",
+    "description": "3-star units at level 5 by rolling your excess gold every round.",
+    "units": [
+      "Kobuko",
+      "RekSai",
+      "Veigar",
+      "Fiddlesticks",
+      "Rammus",
+      "Tristana",
+      "Sett",
+      "Gnar"
+    ],
+    "carries": [
+      "RekSai",
+      "Veigar"
+    ],
+    "mid": [
+      "Kobuko",
+      "RekSai",
+      "Veigar",
+      "Leblanc",
+      "Rammus"
+    ],
+    "carrousel": [
+      {
+        "item": "Jeweled Gauntlet",
+        "component": "Needlessly Large Rod",
+        "shadow": false
+      },
+      {
+        "item": "Jeweled Gauntlet",
+        "component": "Sparring Gloves",
+        "shadow": false
+      },
+      {
+        "item": "Nashor's Tooth",
+        "component": "Recurve Bow",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Kobuko",
+        "items": [],
+        "row": 0,
+        "col": 1
+      },
+      {
+        "name": "RekSai",
+        "items": [
+          "Gargoyle Stoneplate",
+          "Sunfire Cape",
+          "Warmog's Armor"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Veigar",
+        "items": [
+          "Jeweled Gauntlet",
+          "Nashor's Tooth",
+          "Nashor's Tooth"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Fiddlesticks",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Rammus",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Tristana",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Sett",
+        "items": [],
+        "row": 0,
+        "col": 4
+      },
+      {
+        "name": "Gnar",
+        "items": [],
+        "row": 1,
+        "col": 4
+      }
+    ]
+  },
+  {
+    "name": "Juggernaut Hunters",
+    "tier": 2,
+    "playstyle": "Slow Roll (6)",
+    "description": "3-star units at level 6 by rolling your excess gold every round.",
+    "units": [
+      "Rakan",
+      "Caitlyn",
+      "Scuttlecrab",
+      "Sejuani",
+      "Tristana",
+      "Vi",
+      "Sivir",
+      "Ashe"
+    ],
+    "carries": [
+      "Caitlyn",
+      "Scuttlecrab",
+      "Sivir"
+    ],
+    "mid": [
+      "Rakan",
+      "Caitlyn",
+      "Sejuani",
+      "Scuttlecrab",
+      "Vi"
+    ],
+    "carrousel": [
+      {
+        "item": "Guinsoo's Rageblade",
+        "component": "Recurve Bow",
+        "shadow": false
+      },
+      {
+        "item": "Guinsoo's Rageblade",
+        "component": "Needlessly Large Rod",
+        "shadow": false
+      },
+      {
+        "item": "Kraken's Fury",
+        "component": "Negatron Cloak",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Rakan",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Caitlyn",
+        "items": [
+          "Guinsoo's Rageblade",
+          "Kraken's Fury",
+          "Kraken's Fury"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Scuttlecrab",
+        "items": [
+          "Gargoyle Stoneplate",
+          "Sunfire Cape",
+          "Warmog's Armor"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Sejuani",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Tristana",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Vi",
+        "items": [],
+        "row": 0,
+        "col": 4
+      },
+      {
+        "name": "Sivir",
+        "items": [
+          "Last Whisper"
+        ],
+        "row": 3,
+        "col": 5
+      },
+      {
+        "name": "Ashe",
+        "items": [],
+        "row": 3,
+        "col": 4
+      }
+    ]
+  },
+  {
+    "name": "Blossom Executioners",
+    "tier": 2,
+    "playstyle": "Slow Roll (6)",
+    "description": "3-star units at level 6 by rolling your excess gold every round.",
+    "units": [
+      "Alistar",
+      "Leblanc",
+      "Yunara",
+      "Ahri",
+      "Ezreal",
+      "Sett",
+      "Soraka",
+      "Kennen"
+    ],
+    "carries": [
+      "Alistar",
+      "Yunara",
+      "Ezreal"
+    ],
+    "mid": [
+      "Rakan",
+      "Yorick",
+      "Karma",
+      "Leblanc",
+      "Yunara"
+    ],
+    "carrousel": [
+      {
+        "item": "Spear of Shojin",
+        "component": "B.F. Sword",
+        "shadow": false
+      },
+      {
+        "item": "Spear of Shojin",
+        "component": "Tear of the Goddess",
+        "shadow": false
+      },
+      {
+        "item": "Striker's Flail",
+        "component": "Sparring Gloves",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Alistar",
+        "items": [
+          "Gargoyle Stoneplate",
+          "Sunfire Cape",
+          "Warmog's Armor"
+        ],
+        "row": 0,
+        "col": 4
+      },
+      {
+        "name": "Leblanc",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Yunara",
+        "items": [
+          "Deathblade",
+          "Spear of Shojin",
+          "Striker's Flail"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Ahri",
+        "items": [],
+        "row": 3,
+        "col": 1
+      },
+      {
+        "name": "Ezreal",
+        "items": [
+          "Last Whisper"
+        ],
+        "row": 3,
+        "col": 5
+      },
+      {
+        "name": "Sett",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Soraka",
+        "items": [],
+        "row": 3,
+        "col": 4
+      },
+      {
+        "name": "Kennen",
+        "items": [],
+        "row": 0,
+        "col": 3
+      }
+    ]
+  },
+  {
+    "name": "Riftbeast Ravagers",
+    "tier": 2,
+    "playstyle": "Fast 8",
+    "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+    "units": [
+      "Pebbles",
+      "Murkwolf",
+      "Krug",
+      "Sentinel",
+      "Brambleback",
+      "Elder Dragon",
+      "Taric"
+    ],
+    "carries": [
+      "Sentinel",
+      "Brambleback"
+    ],
+    "mid": [
+      "Cinderling",
+      "Pebbles",
+      "Murkwolf",
+      "Scuttlecrab",
+      "Krug"
+    ],
+    "carrousel": [
+      {
+        "item": "Edge of Night",
+        "component": "B.F. Sword",
+        "shadow": false
+      },
+      {
+        "item": "Edge of Night",
+        "component": "Chain Vest",
+        "shadow": false
+      },
+      {
+        "item": "Quicksilver",
+        "component": "Sparring Gloves",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Pebbles",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Murkwolf",
+        "items": [],
+        "row": 0,
+        "col": 6
+      },
+      {
+        "name": "Krug",
+        "items": [],
+        "row": 0,
+        "col": 1
+      },
+      {
+        "name": "Sentinel",
+        "items": [
+          "Protector's Vow",
+          "Protector's Vow",
+          "Sunfire Cape"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Brambleback",
+        "items": [
+          "Edge of Night",
+          "Giant Slayer",
+          "Quicksilver"
+        ],
+        "row": 0,
+        "col": 4
+      },
+      {
+        "name": "Elder Dragon",
+        "items": [],
+        "row": 1,
+        "col": 5
+      },
+      {
+        "name": "Taric",
+        "items": [],
+        "row": 0,
+        "col": 3
+      }
+    ]
+  },
+  {
+    "name": "Coven Spellweavers",
+    "tier": 3,
+    "playstyle": "Fast 8",
+    "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+    "units": [
+      "Elise",
+      "Cassiopeia",
+      "Diana",
+      "Fiddlesticks",
+      "Ahri",
+      "Morgana",
+      "Sentinel",
+      "Taric"
+    ],
+    "carries": [
+      "Ahri",
+      "Sentinel"
+    ],
+    "mid": [
+      "Camille",
+      "Rakan",
+      "Caitlyn",
+      "Elise",
+      "Cassiopeia"
+    ],
+    "carrousel": [
+      {
+        "item": "Spear of Shojin",
+        "component": "Tear of the Goddess",
+        "shadow": false
+      },
+      {
+        "item": "Spear of Shojin",
+        "component": "B.F. Sword",
+        "shadow": false
+      },
+      {
+        "item": "Jeweled Gauntlet",
+        "component": "Needlessly Large Rod",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Elise",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Cassiopeia",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Diana",
+        "items": [],
+        "row": 0,
+        "col": 4
+      },
+      {
+        "name": "Fiddlesticks",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Ahri",
+        "items": [
+          "Jeweled Gauntlet",
+          "Spear of Shojin",
+          "Striker's Flail"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Morgana",
+        "items": [],
+        "row": 1,
+        "col": 4
+      },
+      {
+        "name": "Sentinel",
+        "items": [
+          "Protector's Vow",
+          "Protector's Vow",
+          "Sunfire Cape"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Taric",
+        "items": [],
+        "row": 0,
+        "col": 1
+      }
+    ]
+  },
+  {
+    "name": "Fae Rapidfire",
+    "tier": 3,
+    "playstyle": "Slow Roll (5)",
+    "description": "3-star units at level 5 by rolling your excess gold every round.",
+    "units": [
+      "Ornn",
+      "Rakan",
+      "Varus",
+      "Xayah",
+      "Hecarim",
+      "Tristana",
+      "Amumu",
+      "Lillia"
+    ],
+    "carries": [
+      "Ornn",
+      "Xayah"
+    ],
+    "mid": [
+      "Ornn",
+      "Rakan",
+      "Varus",
+      "Xayah",
+      "Shen"
+    ],
+    "carrousel": [
+      {
+        "item": "Guinsoo's Rageblade",
+        "component": "Recurve Bow",
+        "shadow": false
+      },
+      {
+        "item": "Guinsoo's Rageblade",
+        "component": "Needlessly Large Rod",
+        "shadow": false
+      },
+      {
+        "item": "Infinity Edge",
+        "component": "B.F. Sword",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Ornn",
+        "items": [
+          "Gargoyle Stoneplate",
+          "Spirit Visage",
+          "Warmog's Armor"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Rakan",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Varus",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Xayah",
+        "items": [
+          "Guinsoo's Rageblade",
+          "Infinity Edge",
+          "Kraken's Fury"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Hecarim",
+        "items": [],
+        "row": 0,
+        "col": 1
+      },
+      {
+        "name": "Tristana",
+        "items": [],
+        "row": 3,
+        "col": 5
+      },
+      {
+        "name": "Amumu",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Lillia",
+        "items": [],
+        "row": 0,
+        "col": 4
+      }
+    ]
+  },
+  {
+    "name": "Elderwood",
+    "tier": 3,
+    "playstyle": "Standard",
+    "description": "Flexible strategy focused around a healthy economy while still keeping up in levels. General rules are Level 6 by 3-2, Level 7 by 4-1, and Level 8 by 5-1.",
+    "units": [
+      "Ornn",
+      "Xayah",
+      "Alistar",
+      "Leblanc",
+      "Hecarim",
+      "Ezreal",
+      "Soraka",
+      "Gnar"
+    ],
+    "carries": [
+      "Hecarim",
+      "Ezreal"
+    ],
+    "mid": [
+      "Ornn",
+      "Xayah",
+      "Alistar",
+      "Leblanc",
+      "Hecarim"
+    ],
+    "carrousel": [
+      {
+        "item": "Spear of Shojin",
+        "component": "B.F. Sword",
+        "shadow": false
+      },
+      {
+        "item": "Spear of Shojin",
+        "component": "Tear of the Goddess",
+        "shadow": false
+      },
+      {
+        "item": "Infinity Edge",
+        "component": "Sparring Gloves",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Ornn",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Xayah",
+        "items": [],
+        "row": 3,
+        "col": 2
+      },
+      {
+        "name": "Alistar",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Leblanc",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Hecarim",
+        "items": [
+          "Gargoyle Stoneplate",
+          "Warmog's Armor",
+          "Sunfire Cape"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Ezreal",
+        "items": [
+          "Deathblade",
+          "Infinity Edge",
+          "Spear of Shojin"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Soraka",
+        "items": [],
+        "row": 3,
+        "col": 4
+      },
+      {
+        "name": "Gnar",
+        "items": [],
+        "row": 0,
+        "col": 4
+      }
+    ]
+  },
+  {
+    "name": "Riftbeast Summoners",
+    "tier": 3,
+    "playstyle": "Slow Roll (7)",
+    "description": "3-star units at level 7 by rolling your excess gold every round.",
+    "units": [
+      "Yorick",
+      "Diana",
+      "Krug",
+      "Mama Beak",
+      "Sentinel",
+      "Aphelios",
+      "Sett",
+      "Zyra"
+    ],
+    "carries": [
+      "Krug",
+      "Mama Beak"
+    ],
+    "mid": [
+      "Cinderling",
+      "Pebbles",
+      "Scuttlecrab",
+      "Krug",
+      "Mama Beak"
+    ],
+    "carrousel": [
+      {
+        "item": "Infinity Edge",
+        "component": "B.F. Sword",
+        "shadow": false
+      },
+      {
+        "item": "Infinity Edge",
+        "component": "Sparring Gloves",
+        "shadow": false
+      },
+      {
+        "item": "Guinsoo's Rageblade",
+        "component": "Recurve Bow",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Yorick",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Diana",
+        "items": [],
+        "row": 0,
+        "col": 4
+      },
+      {
+        "name": "Krug",
+        "items": [
+          "Gargoyle Stoneplate",
+          "Sunfire Cape",
+          "Warmog's Armor"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Mama Beak",
+        "items": [
+          "Deathblade",
+          "Guinsoo's Rageblade",
+          "Infinity Edge"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Sentinel",
+        "items": [],
+        "row": 0,
+        "col": 1
+      },
+      {
+        "name": "Aphelios",
+        "items": [],
+        "row": 3,
+        "col": 5
+      },
+      {
+        "name": "Sett",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Zyra",
+        "items": [],
+        "row": 3,
+        "col": 4
+      }
+    ]
+  },
+  {
+    "name": "Eclipse Rapidfire",
+    "tier": 3,
+    "playstyle": "Fast 8",
+    "description": "Level 8 early in Stage 4 to find 4 cost units. Need long win/lose streaks or econ augments.",
+    "units": [
+      "Leona",
+      "Rakan",
+      "Kayle",
+      "Sejuani",
+      "Diana",
+      "Aphelios",
+      "Lillia",
+      "Alune"
+    ],
+    "carries": [
+      "Aphelios",
+      "Lillia"
+    ],
+    "mid": [
+      "Leona",
+      "Rakan",
+      "Xayah",
+      "Kayle",
+      "Sejuani"
+    ],
+    "carrousel": [
+      {
+        "item": "Guinsoo's Rageblade",
+        "component": "Recurve Bow",
+        "shadow": false
+      },
+      {
+        "item": "Guinsoo's Rageblade",
+        "component": "Needlessly Large Rod",
+        "shadow": false
+      },
+      {
+        "item": "Infinity Edge",
+        "component": "B.F. Sword",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Leona",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Rakan",
+        "items": [],
+        "row": 0,
+        "col": 1
+      },
+      {
+        "name": "Kayle",
+        "items": [],
+        "row": 3,
+        "col": 5
+      },
+      {
+        "name": "Sejuani",
+        "items": [],
+        "row": 0,
+        "col": 3
+      },
+      {
+        "name": "Diana",
+        "items": [],
+        "row": 0,
+        "col": 4
+      },
+      {
+        "name": "Aphelios",
+        "items": [
+          "Deathblade",
+          "Guinsoo's Rageblade",
+          "Infinity Edge"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Lillia",
+        "items": [
+          "Protector's Vow",
+          "Sunfire Cape",
+          "Warmog's Armor"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Alune",
+        "items": [],
+        "row": 3,
+        "col": 0
+      }
+    ]
+  },
+  {
+    "name": "Blackthorn Ravagers",
+    "tier": 3,
+    "playstyle": "Slow Roll (6)",
+    "description": "3-star units at level 6 by rolling your excess gold every round.",
+    "units": [
+      "RekSai",
+      "Murkwolf",
+      "Warwick",
+      "Azir",
+      "Diana",
+      "Krug",
+      "Brambleback",
+      "Malphite"
+    ],
+    "carries": [
+      "Warwick",
+      "Malphite"
+    ],
+    "mid": [
+      "RekSai",
+      "Veigar",
+      "Murkwolf",
+      "Warwick",
+      "Azir"
+    ],
+    "carrousel": [
+      {
+        "item": "Spear of Shojin",
+        "component": "B.F. Sword",
+        "shadow": false
+      },
+      {
+        "item": "Spear of Shojin",
+        "component": "Tear of the Goddess",
+        "shadow": false
+      },
+      {
+        "item": "Titan's Resolve",
+        "component": "Recurve Bow",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "RekSai",
+        "items": [],
+        "row": 2,
+        "col": 2
+      },
+      {
+        "name": "Murkwolf",
+        "items": [],
+        "row": 2,
+        "col": 4
+      },
+      {
+        "name": "Warwick",
+        "items": [
+          "Spear of Shojin",
+          "Sterak's Gage",
+          "Titan's Resolve"
+        ],
+        "row": 2,
+        "col": 6
+      },
+      {
+        "name": "Azir",
+        "items": [],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Diana",
+        "items": [],
+        "row": 2,
+        "col": 1
+      },
+      {
+        "name": "Krug",
+        "items": [],
+        "row": 2,
+        "col": 5
+      },
+      {
+        "name": "Brambleback",
+        "items": [],
+        "row": 2,
+        "col": 0
+      },
+      {
+        "name": "Malphite",
+        "items": [
+          "Gargoyle Stoneplate",
+          "Sunfire Cape",
+          "Warmog's Armor"
+        ],
+        "row": 0,
+        "col": 3
+      }
+    ]
+  },
+  {
+    "name": "Solar Riftbeasts",
+    "tier": 3,
+    "playstyle": "Slow Roll (6)",
+    "description": "3-star units at level 6 by rolling your excess gold every round.",
+    "units": [
+      "Akali",
+      "Leona",
+      "Gromp",
+      "Kayle",
+      "Murkwolf",
+      "Scuttlecrab",
+      "Sejuani",
+      "Shen"
+    ],
+    "carries": [
+      "Gromp",
+      "Scuttlecrab"
+    ],
+    "mid": [
+      "Cinderling",
+      "Gromp",
+      "Murkwolf",
+      "Scuttlecrab",
+      "Krug"
+    ],
+    "carrousel": [
+      {
+        "item": "Deathblade",
+        "component": "B.F. Sword",
+        "shadow": false
+      },
+      {
+        "item": "Red Buff",
+        "component": "Recurve Bow",
+        "shadow": false
+      },
+      {
+        "item": "Last Whisper",
+        "component": "Sparring Gloves",
+        "shadow": false
+      }
+    ],
+    "characters": [
+      {
+        "name": "Akali",
+        "items": [],
+        "row": 0,
+        "col": 6
+      },
+      {
+        "name": "Leona",
+        "items": [],
+        "row": 0,
+        "col": 2
+      },
+      {
+        "name": "Gromp",
+        "items": [
+          "Jeweled Gauntlet",
+          "Nashor's Tooth",
+          "Nashor's Tooth"
+        ],
+        "row": 3,
+        "col": 6
+      },
+      {
+        "name": "Kayle",
+        "items": [],
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "Murkwolf",
+        "items": [],
+        "row": 0,
+        "col": 4
+      },
+      {
+        "name": "Scuttlecrab",
+        "items": [
+          "Gargoyle Stoneplate",
+          "Spirit Visage",
+          "Warmog's Armor"
+        ],
+        "row": 0,
+        "col": 5
+      },
+      {
+        "name": "Sejuani",
+        "items": [],
+        "row": 0,
+        "col": 1
+      },
+      {
+        "name": "Shen",
+        "items": [],
+        "row": 0,
+        "col": 3
+      }
+    ]
+  }
 ]

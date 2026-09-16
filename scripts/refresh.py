@@ -495,10 +495,18 @@ def _compute_board_layout(units: list, catalog: dict) -> list:
         c = u.get("cost")
         return c if isinstance(c, (int, float)) and c > 0 else 99
 
+    # Prefer real positioning from tftactics (how the unit is actually played);
+    # fall back to CDragon attack range for units not covered there.
+    pos_hints = _tft_position_hints()
     front, back = [], []
     for u in units:
-        rng = unit_ranges.get(_norm_key(u.get("name", "")))
-        (back if isinstance(rng, (int, float)) and rng > 1 else front).append(u)
+        key = _norm_key(u.get("name", ""))
+        hint = pos_hints.get(key)
+        if hint is not None:
+            (back if hint >= 1.5 else front).append(u)
+        else:
+            rng = unit_ranges.get(key)
+            (back if isinstance(rng, (int, float)) and rng > 1 else front).append(u)
 
     grid = [[None] * 7 for _ in range(4)]
 
@@ -770,6 +778,35 @@ def _load_tft_comps() -> list:
     return _TFT_COMPS
 
 
+_TFT_POS_HINTS: Optional[dict] = None
+
+
+def _tft_position_hints() -> dict:
+    """Map norm(unit name) → average board row (0 = front … 3 = back) across all
+    tftactics comps.
+
+    Lets board layout tell front-liners from back-liners by how a unit is
+    ACTUALLY played rather than by raw attack range, which misclassifies
+    melee-range divers/casters (e.g. Kennen has range 2 but dives the front).
+    Requires the scraped dataset to include per-character positions
+    (scrape_tftactics.py emits row/col); returns {} otherwise.
+    """
+    global _TFT_POS_HINTS
+    if _TFT_POS_HINTS is not None:
+        return _TFT_POS_HINTS
+    agg: dict = {}
+    for c in _load_tft_comps():
+        for ch in c.get("characters") or []:
+            r = ch.get("row")
+            nm = ch.get("name")
+            if nm and isinstance(r, (int, float)):
+                e = agg.setdefault(_norm_key(nm), [0.0, 0])
+                e[0] += r
+                e[1] += 1
+    _TFT_POS_HINTS = {k: tot / n for k, (tot, n) in agg.items() if n}
+    return _TFT_POS_HINTS
+
+
 def _match_tft_comp(arch: dict) -> Optional[dict]:
     """Best-matching tftactics comp by core-unit Jaccard + carry match."""
     comps = _load_tft_comps()
@@ -861,14 +898,56 @@ def _carousel_from_tft(comp: dict, catalog: dict) -> Optional[list]:
     return out or None
 
 
+def _best_transition_comp(arch: dict) -> Optional[dict]:
+    """Pick the tftactics comp whose early ("mid") board best transitions into
+    OUR final board — i.e. shares the most units with it.
+
+    The old approach matched purely on final-board similarity and then attached
+    that comp's ``mid``; but tftactics' mid boards are comp-specific and often
+    share ZERO units with a data-clustered board (e.g. a Kobuko/Rek'Sai/Teemo
+    opener glued onto a Yorick/Azir/Spellweaver board). A real opener must
+    cleanly pivot into the final board, so we rank every comp's early board by
+    how many of its units are actually kept in our final board, then break ties
+    by overall comp similarity + carry match.
+    """
+    comps = _load_tft_comps()
+    if not comps:
+        return None
+    core_ours = {_norm_key(u["name"]) for u in arch.get("coreUnits", [])}
+    all_ours = core_ours | {_norm_key(u["name"]) for u in arch.get("flexUnits", [])}
+    if not all_ours:
+        return None
+    carry = _norm_key(arch.get("carryName") or "")
+    best, best_key = None, None
+    for c in comps:
+        mid = {_norm_key(x) for x in (c.get("mid") or [])}
+        if not mid:
+            continue
+        cu = {_norm_key(x) for x in c.get("units", [])}
+        trans_core = len(mid & core_ours)              # defining units kept into final
+        trans_all = len(mid & all_ours)                # any unit kept (incl. flex)
+        jac = len(all_ours & cu) / (len(all_ours | cu) or 1)  # same-comp similarity
+        carry_bonus = 0.3 if carry and carry in cu else 0.0
+        # Prefer sharing our CORE units (a real carry-over) over generic early
+        # units that merely show up in our flex; then total overlap; then
+        # overall comp similarity + carry match.
+        key = (trans_core, trans_all, round(jac + carry_bonus, 4))
+        if best_key is None or key > best_key:
+            best, best_key = c, key
+    # Require the early board to carry ≥1 unit into our final board.
+    if best is None or best_key[1] < 1:
+        return None
+    return best
+
+
 def _classify_opener(arch: dict, catalog: dict) -> dict:
     """Attach an early-game opener plan.
 
-    Priority: (1) the transition ("mid") board from the best-matching
-    tftactics.gg meta comp, enriched with curated nuance; (2) curated
-    per-carry opener; (3) generic data-driven fallback.
+    Priority: (1) the transition ("mid") board from the tftactics.gg comp whose
+    early board best pivots into OUR final board, enriched with curated nuance;
+    (2) curated per-carry opener; (3) generic data-driven fallback.
     """
-    match = _match_tft_comp(arch)
+    match = _best_transition_comp(arch)
     if match:
         op = _opener_from_tft(match, arch, catalog)
         if op:
