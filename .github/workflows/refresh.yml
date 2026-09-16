@@ -115,6 +115,31 @@ jobs:
             git push && echo "Pushed — Vercel will redeploy."
           fi
 
+      # ── Keep the live leaderboard fresh (LP + rank) ──────────────────────────
+      # The seed above builds the comp sample in historical_insights but does NOT
+      # populate the ranked ladder, so the leaderboard would have no LP/rank. Now
+      # that the set has a live challenger ladder, pull it into challenger_players
+      # (the table the leaderboard API reads) and backfill each challenger's name
+      # + insights from the seed we just harvested. Both steps are non-fatal so a
+      # hiccup here never blocks the comp snapshot pipeline above.
+      - name: Refresh live leaderboard (LP + rank)
+        if: always()
+        continue-on-error: true
+        env:
+          RIOT_API_KEY:   ${{ secrets.RIOT_API_KEY }}
+          DATABASE_URL:   ${{ secrets.DATABASE_URL }}
+          TFT_ACTIVE_SET: ${{ vars.TFT_ACTIVE_SET || '18' }}
+        run: |
+          python3 scripts/refresh.py --region "$REGION" --tier challenger --ladder-only
+      - name: Backfill leaderboard names + insights from seed
+        if: always()
+        continue-on-error: true
+        env:
+          DATABASE_URL:   ${{ secrets.DATABASE_URL }}
+          TFT_ACTIVE_SET: ${{ vars.TFT_ACTIVE_SET || '18' }}
+        run: |
+          python3 -c 'import os,re,psycopg2; url=re.sub(r"[&?]channel_binding=[^&]*","",os.environ["DATABASE_URL"]); aset=int(os.environ.get("TFT_ACTIVE_SET","18")); region=os.environ.get("REGION","na1").lower(); q="UPDATE challenger_players cp SET summoner_name=COALESCE(NULLIF(btrim(hi.summoner_name),"+chr(39)*2+"),cp.summoner_name), insights=hi.insights FROM historical_insights hi WHERE cp.puuid=hi.puuid AND cp.platform=%s AND cp.tier=%s AND cp.set_number=%s AND hi.set_number=%s AND hi.insights IS NOT NULL"; c=psycopg2.connect(url,sslmode="require"); cur=c.cursor(); cur.execute(q,(region,"challenger",aset,aset)); print("backfilled",cur.rowcount,"leaderboard rows"); c.commit(); c.close()'
+
   # ── Notify on key expiry, retry on timeout ───────────────────────────────────
   finish:
     name: "2 — Notify / Retry"
