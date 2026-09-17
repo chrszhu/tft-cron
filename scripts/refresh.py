@@ -1032,6 +1032,11 @@ def _classify_opener(arch: dict, catalog: dict, meta_comp: Optional[dict] = None
 # metatft.com Referer. NON-FATAL by design: any failure just means no recommended
 # augments this run, so a MetaTFT outage never breaks the cron.
 METATFT_API = "https://api-hc.metatft.com/tft-comps-api"
+# MetaTFT's augment icon CDN hosts an image for EVERY augment id (including
+# current-set-only augments CDragon hasn't published yet), so it's the primary
+# icon source for recommended augments — guaranteeing 100% coverage. The path is
+# just the exact MetaTFT id lowercased, keeping the DA_ prefix.
+METATFT_AUG_ICON_CDN = "https://cdn.metatft.com/file/metatft/augments/{id}.png"
 METATFT_HEADERS = {
     "Referer": "https://www.metatft.com/",
     "User-Agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -1066,6 +1071,13 @@ def _metatft_aug_base(aug_id: str, active_set: int) -> str:
     s = re.sub(r"(PlusPlus|Plus)$", "", s)
     s = re.sub(r"_(I{1,3}|IV|V|1|2|3)$", "", s, flags=re.IGNORECASE)
     return re.sub(r"[^a-z0-9]", "", s.lower())
+
+
+def _metatft_augment_icon(aug_id: str) -> Optional[str]:
+    """MetaTFT CDN icon URL for an augment id (exact id, lowercased)."""
+    if not aug_id:
+        return None
+    return METATFT_AUG_ICON_CDN.format(id=aug_id.lower())
 
 
 def _humanize_metatft_aug(aug_id: str, active_set: int) -> str:
@@ -1264,8 +1276,11 @@ def _attach_recommended_augments(arch: dict, catalog: dict) -> bool:
     for e in curated:
         info = _resolve_metatft_augment(e["id"], active, index)
         resolved.append({
+            # Display name via CDragon (with de-camelCase fallback); icon from
+            # MetaTFT's CDN (covers current-set augments CDragon lacks), falling
+            # back to a CDragon icon only if the id somehow yields no URL.
             "name": (info or {}).get("name") or _humanize_metatft_aug(e["id"], active),
-            "iconUrl": (info or {}).get("iconUrl"),
+            "iconUrl": _metatft_augment_icon(e["id"]) or (info or {}).get("iconUrl"),
             "tier": e.get("tier"),
             "id": e["id"],
         })
