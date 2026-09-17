@@ -790,16 +790,30 @@ _TFT_COMPS = None
 
 
 def _load_tft_comps() -> list:
+    """Load the scraped meta-comp dataset that feeds positioning / tier / opener /
+    carousel / stage tips.
+
+    Prefers TFT Academy (scrape_tftacademy.py → tftacademy_set18.json): it's a
+    strict SUPERSET of the tftactics schema (same name/tier/units/carries/mid/
+    characters fields) PLUS exact boardIndex positioning for every unit,
+    stage-by-stage roll/level tips, difficulty, a late-game max-cap, grouped
+    augments, and an authored augments tip. Falls back to the older tftactics
+    scrape if the Academy file is absent."""
     global _TFT_COMPS
     if _TFT_COMPS is not None:
         return _TFT_COMPS
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tftactics_set18.json")
-    try:
-        with open(path) as f:
-            _TFT_COMPS = json.load(f)
-    except Exception as e:
-        print(f"[opener] tftactics dataset not loaded: {e}")
-        _TFT_COMPS = []
+    here = os.path.dirname(os.path.abspath(__file__))
+    for fname in ("tftacademy_set18.json", "tftactics_set18.json"):
+        path = os.path.join(here, fname)
+        try:
+            with open(path) as f:
+                _TFT_COMPS = json.load(f)
+            print(f"[opener] loaded {len(_TFT_COMPS)} meta comps from {fname}")
+            return _TFT_COMPS
+        except Exception:
+            continue
+    print("[opener] no meta-comp dataset found (tftacademy/tftactics)")
+    _TFT_COMPS = []
     return _TFT_COMPS
 
 
@@ -1079,7 +1093,7 @@ def _opener_from_tft(comp: dict, arch: dict, catalog: dict) -> Optional[dict]:
         "streak": streak,
         "detail": detail,
         "units": units,
-        "source": "tftactics",
+        "source": comp.get("source") or "tftactics",
         "playstyle": play,
     }
 
@@ -1122,6 +1136,32 @@ def _carousel_from_tft(comp: dict, catalog: dict) -> Optional[list]:
         if iname:
             row["buildsInto"] = {"name": iname, "iconUrl": icons.get(_norm_key(iname))}
         out.append(row)
+    return out or None
+
+
+def _carousel_from_tfta(comp: dict, catalog: dict) -> Optional[list]:
+    """Carousel priority from a TFT Academy comp's ``carousel`` field.
+
+    Unlike tftactics' {component, item} pairs, TFT Academy lists the carousel
+    priority as a flat, ordered mix of the exact components AND finished/artifact
+    items to grab (highest priority first). We keep that authored order and emit
+    each as its own icon (component or full item), resolving icons from the
+    catalog. Output entries: {name, iconUrl}, deduped, priority order preserved."""
+    car = (comp or {}).get("carousel") or []
+    if not car:
+        return None
+    icons: dict = {}
+    for v in (catalog.get("items") or {}).values():
+        nm = (v or {}).get("name")
+        if nm:
+            icons.setdefault(_norm_key(nm), (v or {}).get("iconUrl"))
+    out, seen = [], set()
+    for name in car:
+        k = _norm_key(name)
+        if not k or k in seen:
+            continue
+        seen.add(k)
+        out.append({"name": name, "iconUrl": icons.get(k)})
     return out or None
 
 
@@ -1557,6 +1597,58 @@ def _attach_recommended_augments(arch: dict, catalog: dict) -> bool:
         return False
     arch["recommendedAugments"] = resolved
     arch["recommendedAugmentsSource"] = "metatft"
+    arch["augmentReliant"] = reliant
+    return True
+
+
+def _attach_tfta_augments(arch: dict, match: dict, catalog: dict) -> bool:
+    """Fallback: attach a matched TFT Academy comp's curated augments.
+
+    Used only when MetaTFT can't match the comp (its observed per-comp tier list
+    is preferred). TFT Academy lists augments grouped by rarity rather than a
+    quality tier, so we surface the rarity (Silver/Gold/Prismatic) as the chip
+    and classify each into Combat/Economy/Utility via the shared heuristic. Names
+    and descriptions are resolved against the CDragon augment index; icons come
+    from MetaTFT's CDN (100% coverage, keyed by the DA_ apiName), falling back to
+    the CDragon icon. Sets recommendedAugments + recommendedAugmentsSource."""
+    augs = match.get("augments") or []
+    if not augs:
+        return False
+    active = catalog.get("activeSet") or 0
+    index = _cdragon_augment_index(catalog)
+    by_name: dict = {}
+    for a in index:
+        by_name.setdefault(a["normName"], a)
+    trait_keys = {_norm_key(t.get("name", "")) for t in arch.get("traits", [])}
+    unit_keys = {_norm_key(u.get("name", "")) for u in arch.get("coreUnits", [])}
+    key_terms = {k for k in (trait_keys | unit_keys) if len(k) >= 4}
+    resolved, seen, reliant = [], set(), False
+    for a in augs:
+        api = a.get("apiName") or ""
+        name = a.get("name") or _humanize_metatft_aug(api, active)
+        nkey = re.sub(r"[^a-z0-9]", "", name.lower())
+        if not nkey or nkey in seen:
+            continue
+        seen.add(nkey)
+        info = by_name.get(nkey)
+        if not info:
+            info = next((v for k, v in by_name.items() if k.startswith(nkey) or nkey in k), None)
+        disp = (info or {}).get("name") or name
+        desc = (info or {}).get("desc") or ""
+        resolved.append({
+            "name": disp,
+            "iconUrl": _metatft_augment_icon(api) or (info or {}).get("iconUrl"),
+            "tier": a.get("tier") or None,   # rarity: Silver/Gold/Prismatic
+            "id": api,
+            "category": _augment_category(disp, api, desc),
+            "desc": desc,
+        })
+        if any(k in re.sub(r"[^a-z0-9]", "", api.lower()) for k in key_terms):
+            reliant = True
+    if not resolved:
+        return False
+    arch["recommendedAugments"] = resolved
+    arch["recommendedAugmentsSource"] = "tftacademy"
     arch["augmentReliant"] = reliant
     return True
 
@@ -2149,8 +2241,9 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
                 board_units.append(u)
             # Leveling first: it sets carryName/category, which _match_tft_comp uses.
             arch.update(_classify_comp_leveling(core_units, flex_units, catalog))
-            # Best-matching tftactics meta comp (live set only). Used for the
-            # prominent board NAME, exact board positioning, and carousel.
+            # Best-matching meta comp (TFT Academy, live set only). Used for the
+            # prominent board NAME, exact board positioning, carousel, and the
+            # authored enrichment below (stage tips, difficulty, late-game cap).
             match = _match_tft_comp(arch) if with_opener else None
             pos_overrides: dict = {}
             if match:
@@ -2160,6 +2253,28 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
                     nm, r, c = ch.get("name"), ch.get("row"), ch.get("col")
                     if nm and isinstance(r, int) and isinstance(c, int):
                         pos_overrides[_norm_key(nm)] = (r, c)
+                # Authored enrichment from TFT Academy (no-ops for the older
+                # tftactics dataset, which lacks these fields):
+                #  • stageTips  — comp-specific stage-by-stage roll/level guidance
+                #    (far more actionable than our generic per-category curve),
+                #  • difficulty — Easy/Medium/Hard rating,
+                #  • lateGame   — max-cap additions and the unit each replaces,
+                #  • augmentsTip — expert note on emblems/holders/late-game cap.
+                tips = [t for t in (match.get("tips") or [])
+                        if isinstance(t, dict) and t.get("tip")]
+                if tips:
+                    arch["stageTips"] = tips
+                if match.get("difficulty"):
+                    arch["difficulty"] = match["difficulty"]
+                if match.get("maxCap"):
+                    arch["lateGame"] = [
+                        {"name": u.get("name"),
+                         "replaces": (u.get("replaces") or [None])[0],
+                         "items": u.get("items") or []}
+                        for u in match["maxCap"] if u.get("name")
+                    ]
+                if match.get("augmentsTip"):
+                    arch["augmentsTip"] = match["augmentsTip"]
             # Tier rating from the curated tftactics tier list (confident match,
             # else nearest comp). Live set only — historical sets have no match.
             if with_opener:
@@ -2185,15 +2300,24 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
                 op_tc = _team_code([u["name"] for u in op.get("units", [])], tp, aset)
                 if op_tc:
                     op["teamCode"] = op_tc
-                # Carousel priority: prefer tftactics' curated key-item components
-                # (weighted toward the comp's BIS carry/tank items) when the comp
-                # matches a meta comp; else fall back to the frequency tally below.
-                car = _carousel_from_tft(match, catalog) if match else None
+                # Carousel priority: prefer the matched meta comp's curated
+                # priority (TFT Academy's ordered component/item list, else
+                # tftactics' {component,item} pairs), which is weighted toward the
+                # comp's BIS carry/tank items; else fall back to the tally below.
+                car = None
+                if match:
+                    car = _carousel_from_tfta(match, catalog) or _carousel_from_tft(match, catalog)
                 if car:
                     arch["carouselPriority"] = car
                 # Recommended augments (MetaTFT per-comp curated tier list),
                 # matched to this archetype by core-unit overlap. Non-fatal.
-                _attach_recommended_augments(arch, catalog)
+                # MetaTFT stays primary — it ranks augments by real per-comp
+                # quality tier (S/A/B). TFT Academy only groups augments by
+                # rarity, so we fall back to its list only when MetaTFT can't
+                # match this comp (its authored augmentsTip is attached above
+                # regardless, as expert context alongside whichever list shows).
+                if not _attach_recommended_augments(arch, catalog) and match:
+                    _attach_tfta_augments(arch, match, catalog)
             # Carousel priority fallback: aggregate the components a comp's item
             # holders need across their BIS items, ranked by how many are required.
             arch.setdefault("carouselPriority", _compute_carousel_priority(core_units, catalog))
