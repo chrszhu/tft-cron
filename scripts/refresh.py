@@ -948,19 +948,56 @@ def _data_driven_opener_detail(early_names: list, arch: dict, catalog: dict,
     early_names = [n for n in early_names if n]
     early_norm = {_norm_key(n) for n in early_names}
     core_names = [u.get("name") for u in arch.get("coreUnits", []) if u.get("name")]
+    core_norm = {_norm_key(n) for n in core_names}
     carry = arch.get("carryName")
     carry_norm = _norm_key(carry or "")
     dmg = _carry_dmg_type(arch, catalog)
 
-    # Early item holder: a matched-comp carry that's on the early board, else the
-    # early board's final-carry, else the priciest early unit.
-    carries_norm = {_norm_key(c) for c in (arch.get("_openerCarries") or [])}
-    holder = next((n for n in early_names if _norm_key(n) in carries_norm), None)
-    if not holder and carry_norm in early_norm:
+    # Per-unit signals from OUR final data: item-holder % (who actually held
+    # items) and cost. Only units that also appear in the final core/flex carry
+    # these; pure early-board bodies fall back to the catalog cost.
+    final_by_norm: dict = {}
+    for u in (arch.get("coreUnits") or []) + (arch.get("flexUnits") or []):
+        nm = u.get("name")
+        if nm:
+            final_by_norm.setdefault(_norm_key(nm), u)
+
+    def _cost(n: str) -> int:
+        u = final_by_norm.get(_norm_key(n)) or {}
+        return u.get("cost") or (_unit_by_display_name(catalog, n) or {}).get("cost") or 0
+
+    def _ihp(n: str) -> float:
+        return (final_by_norm.get(_norm_key(n)) or {}).get("itemHolderPct") or 0
+
+    # Early item holder — you hold early items on the eventual carry / reroll
+    # unit, NOT the priciest body. Priority (first match wins), always chosen
+    # from units ON the early board so the guide never names an off-board unit:
+    #   1. the comp's final carry, if it's already on the early board;
+    #   2. the early unit with the highest itemHolderPct (empirical signal);
+    #   3. a genuine reroll/transition carry on the early board — a curated early
+    #      carry (OPENER_LIBRARY key, e.g. Veigar) or, failing that, a low-cost
+    #      (1–2) unit kept into the final core — over a high-cost flex body;
+    #   4. else the highest-cost early unit (a body, better than nothing).
+    holder = None
+    if carry_norm and carry_norm in early_norm:
         holder = next((n for n in early_names if _norm_key(n) == carry_norm), None)
+    if not holder:
+        ihp_cands = [(n, _ihp(n)) for n in early_names if _ihp(n) > 0]
+        if ihp_cands:
+            holder = max(ihp_cands, key=lambda t: t[1])[0]
+    if not holder:
+        lib_keys = {_norm_key(k) for k in OPENER_LIBRARY}
+        lib_cands = [n for n in early_names if _norm_key(n) in lib_keys]
+        if lib_cands:
+            # Prefer one kept into the final core, then the cheaper (reroll) carry.
+            holder = min(lib_cands, key=lambda n: (0 if _norm_key(n) in core_norm else 1, _cost(n)))
+        else:
+            reroll_cands = [n for n in early_names
+                            if _norm_key(n) in core_norm and 1 <= _cost(n) <= 2]
+            if reroll_cands:
+                holder = max(reroll_cands, key=_cost)
     if not holder and early_names:
-        holder = max(early_names,
-                     key=lambda n: (_unit_by_display_name(catalog, n) or {}).get("cost") or 0)
+        holder = max(early_names, key=_cost)
 
     # Final CORE units you add (excluding what's already on the early board and
     # the carry, which gets its own clause). Cap for brevity.
@@ -1028,8 +1065,6 @@ def _opener_from_tft(comp: dict, arch: dict, catalog: dict) -> Optional[dict]:
     cur = next((v for k, v in OPENER_LIBRARY.items() if _norm_key(k) == carry_norm), None)
     streak = (cur or {}).get("streak", "flex")
 
-    # Pass the matched comp's carries so the holder heuristic can prefer them.
-    arch = {**arch, "_openerCarries": comp.get("carries") or []}
     detail = _data_driven_opener_detail([u["name"] for u in units], arch, catalog, streak, play)
 
     # Append curated item-slam nuance ONLY if it stays on-board.
