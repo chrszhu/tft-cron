@@ -254,6 +254,11 @@ def _fetch_catalog(active_set: int) -> dict:
         icon = item.get("icon") or item.get("iconPath") or item.get("squareIconPath") or ""
         if api and name:
             entry = {"name": name, "iconUrl": _normalize_icon(icon)}
+            # Augments carry a description + effect values in CDragon's items
+            # list; keep them so augment tooltips can show what each one does.
+            if "augment" in api.lower():
+                entry["desc"] = item.get("desc") or ""
+                entry["effects"] = item.get("effects") or {}
             items[api] = entry
             if item.get("id") is not None:
                 items[str(item["id"])] = entry
@@ -1090,6 +1095,85 @@ def _humanize_metatft_aug(aug_id: str, active_set: int) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
 
+def _clean_augment_desc(desc: str, effects: dict) -> str:
+    """Turn a raw CDragon augment desc into readable tooltip text.
+
+    CDragon descriptions embed effect placeholders like ``@NumGloves@`` or
+    ``@Amount*100@`` plus TFT rich-text/markup tags. Substitute effect values
+    where we have them, drop leftover tokens/markup, and tidy whitespace."""
+    if not desc:
+        return ""
+    eff = {str(k).lower(): v for k, v in (effects or {}).items()}
+
+    def _fmt(n):
+        try:
+            f = float(n)
+        except (TypeError, ValueError):
+            return str(n)
+        return str(int(f)) if f == int(f) else f"{f:g}"
+
+    def _sub(m):
+        expr = m.group(1)
+        mult = 1.0
+        m2 = re.match(r"([A-Za-z0-9_]+)\s*\*\s*([0-9.]+)$", expr)
+        base = expr
+        if m2:
+            base, mult = m2.group(1), float(m2.group(2))
+        v = eff.get(base.lower())
+        if v is None:
+            return ""  # unknown placeholder → drop it
+        try:
+            return _fmt(float(v) * mult)
+        except (TypeError, ValueError):
+            return _fmt(v)
+
+    s = re.sub(r"@([^@]+)@", _sub, desc)
+    s = re.sub(r"<br\s*/?>", " ", s, flags=re.I)   # line breaks → spaces
+    s = re.sub(r"%i:[^%]*%", "", s)                # inline sprite tokens
+    s = re.sub(r"<[^>]+>", "", s)                   # any remaining markup tags
+    s = s.replace("@", "")                          # stray placeholder markers
+    return re.sub(r"\s+", " ", s).strip()
+
+
+# Keyword buckets for classifying an augment as Combat / Economy / Utility.
+# Riot groups augments into these three families in-game; there's no clean data
+# field, so we heuristically classify by name + description keywords. Combat is
+# checked FIRST on distinctive stat phrases (many economy/utility augments also
+# hand out a secondary component or gold, which would otherwise misfire), then
+# Economy, else Utility. Tokens are chosen to avoid substring collisions (e.g.
+# no bare "econ", which matches "seconds").
+_AUG_COMBAT_KW = (
+    "damage amp", "attack damage", "ability power", "attack speed", "magic resist",
+    "armor", "durability", "critical", "omnivamp", "lifesteal", "shield",
+    "max health", "gain health", "gains health", "health for each",
+    "% health", "on-hit", "on hit", "sunder", "shred", "damage to",
+    "deal 1", "deals 1", "deal 2", "deals 2", "bonus damage", "team gains",
+    "units gain", "allies gain", "starts combat", "start combat",
+    "b.f. sword", "tear of the goddess", "mana per",
+)
+_AUG_ECON_KW = (
+    "gold", "interest", "income", "loot", "component", "anvil", "reforger",
+    "reroll", "free shop", "shop reroll", "thief", "glove", "grab bag",
+    "delivery", "rebate", "duplicator", "money", "gamble", "pilfer",
+    "5-cost champion", "random component", "random 2-star", "random 5-cost",
+    "silver augment", "prismatic",
+)
+
+
+def _augment_category(name: str, aug_id: str, desc: str) -> str:
+    """Classify an augment into 'Combat' | 'Economy' | 'Utility'.
+
+    Combat wins first (buffs units/board in fights), then Economy (gold,
+    components, rerolls, duplicators — tempo/value), else Utility (leveling,
+    emblems, champion copies, item crafting, scouting, trait flexibility)."""
+    hay = f" {(name or '').lower()} {(aug_id or '').lower()} {(desc or '').lower()} "
+    if any(k in hay for k in _AUG_COMBAT_KW):
+        return "Combat"
+    if any(k in hay for k in _AUG_ECON_KW):
+        return "Economy"
+    return "Utility"
+
+
 def _cdragon_augment_index(catalog: dict) -> list:
     """Index CDragon augments (drawn from catalog items whose apiName contains
     'Augment') for MetaTFT id resolution. CDragon's own top-level augments array
@@ -1108,6 +1192,7 @@ def _cdragon_augment_index(catalog: dict) -> list:
         idx.append({
             "iconUrl": (v or {}).get("iconUrl"),
             "name": name,
+            "desc": _clean_augment_desc((v or {}).get("desc") or "", (v or {}).get("effects") or {}),
             "normName": re.sub(r"[^a-z0-9]", "", name.lower()),
             "normTail": re.sub(r"[^a-z0-9]", "", tail),
             # Prefer current-set ('TFT18_') or generic ('TFT_Augment_') variants.
@@ -1140,7 +1225,7 @@ def _resolve_metatft_augment(aug_id: str, active_set: int, index: list) -> Optio
             best, best_key = a, key
     if not best:
         return None
-    return {"name": best["name"], "iconUrl": best["iconUrl"]}
+    return {"name": best["name"], "iconUrl": best["iconUrl"], "desc": best.get("desc") or ""}
 
 
 def _fetch_metatft_augments(active_set: int, catalog: dict) -> dict:
@@ -1272,22 +1357,36 @@ def _attach_recommended_augments(arch: dict, catalog: dict) -> bool:
     if best_cl is None or (best_jac < 0.3 and best_shared < 3):
         return False
     curated = _curate_recommended_augments(tiers_by_cluster.get(best_cl) or [], arch, active)
+    # Signal for the "Augment" playstyle filter: does this comp have a dedicated
+    # trait/hero augment among its recommendations (built around its identity)?
+    trait_keys = {_norm_key(t.get("name", "")) for t in arch.get("traits", [])}
+    unit_keys = {_norm_key(u.get("name", "")) for u in arch.get("coreUnits", [])}
+    key_terms = {k for k in (trait_keys | unit_keys) if len(k) >= 4}
+    reliant = False
     resolved = []
     for e in curated:
         info = _resolve_metatft_augment(e["id"], active, index)
+        name = (info or {}).get("name") or _humanize_metatft_aug(e["id"], active)
+        desc = (info or {}).get("desc") or ""
         resolved.append({
             # Display name via CDragon (with de-camelCase fallback); icon from
             # MetaTFT's CDN (covers current-set augments CDragon lacks), falling
             # back to a CDragon icon only if the id somehow yields no URL.
-            "name": (info or {}).get("name") or _humanize_metatft_aug(e["id"], active),
+            "name": name,
             "iconUrl": _metatft_augment_icon(e["id"]) or (info or {}).get("iconUrl"),
             "tier": e.get("tier"),
             "id": e["id"],
+            "category": _augment_category(name, e["id"], desc),
+            "desc": desc,
         })
+        nid = re.sub(r"[^a-z0-9]", "", (e["id"] or "").lower())
+        if any(k in nid for k in key_terms):
+            reliant = True
     if not resolved:
         return False
     arch["recommendedAugments"] = resolved
     arch["recommendedAugmentsSource"] = "metatft"
+    arch["augmentReliant"] = reliant
     return True
 
 
