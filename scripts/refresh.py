@@ -1197,6 +1197,36 @@ def _carousel_from_tfta(comp: dict, catalog: dict) -> Optional[list]:
     return out or None
 
 
+def _emblems_from_comp(comp: dict, catalog: dict) -> list:
+    """Extract authored emblem usage from a matched meta comp → [{unit, emblem}].
+
+    TFT Academy encodes emblems as item entries containing 'Emblem' on specific
+    units across the early/final/max-cap builds — the comp's *intended* emblem
+    plan, a real strategic signal. This is far more meaningful than our harvested
+    top-items (where an emblem often appears as incidental filler on some board),
+    so it both powers a strict 'Emblem' playstyle bucket and gives us concrete
+    info to show ('Invoker Emblem on Ahri')."""
+    out, seen = [], set()
+    for blk in ("finalComp", "earlyComp", "maxCap"):
+        for u in comp.get(blk) or []:
+            nm = u.get("name")
+            if not nm:
+                continue
+            for it in (u.get("items") or []):
+                itk = _norm_key(it)
+                # Real trait emblems only; skip mis-parsed trait-augment hybrids
+                # (e.g. "Flora Fatalis Augment Emblem") that aren't craftable items.
+                if "emblem" not in itk or "augment" in itk:
+                    continue
+                key = (_norm_key(nm), _norm_key(it))
+                if key in seen:
+                    continue
+                seen.add(key)
+                ur = _unit_by_display_name(catalog, nm)
+                out.append({"unit": (ur or {}).get("name") or nm, "emblem": it})
+    return out
+
+
 def _best_transition_comp(arch: dict) -> Optional[dict]:
     """Pick the tftactics comp whose early ("mid") board best transitions into
     OUR final board — i.e. shares the most units with it.
@@ -1669,7 +1699,10 @@ def _attach_tfta_augments(arch: dict, match: dict, catalog: dict) -> bool:
         desc = (info or {}).get("desc") or ""
         resolved.append({
             "name": disp,
-            "iconUrl": _metatft_augment_icon(api) or (info or {}).get("iconUrl"),
+            # Prefer official CommunityDragon art (what TFT Academy and most
+            # sites render); fall back to MetaTFT's CDN for the brand-new Set 18
+            # augments CDragon hasn't published yet, so coverage stays 100%.
+            "iconUrl": (info or {}).get("iconUrl") or _metatft_augment_icon(api),
             "tier": a.get("tier") or None,   # rarity: Silver/Gold/Prismatic
             "id": api,
             "category": _augment_category(disp, api, desc),
@@ -2307,6 +2340,11 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
                     ]
                 if match.get("augmentsTip"):
                     arch["augmentsTip"] = match["augmentsTip"]
+                embs = _emblems_from_comp(match, catalog)
+                if embs:
+                    arch["emblems"] = embs
+                else:
+                    arch.pop("emblems", None)
             # Tier rating from the curated tftactics tier list (confident match,
             # else nearest comp). Live set only — historical sets have no match.
             if with_opener:
