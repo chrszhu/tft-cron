@@ -827,6 +827,42 @@ def _tft_position_hints() -> dict:
     return _TFT_POS_HINTS
 
 
+def _tftactics_tier_letter(t) -> Optional[str]:
+    """Map a tftactics comp tier index (1 = best / S) to a letter grade."""
+    return {1: "S", 2: "A", 3: "B", 4: "C", 5: "D"}.get(t) if isinstance(t, int) else None
+
+
+def _comp_tier_letter(arch: dict, match: Optional[dict]) -> Optional[str]:
+    """Tier grade (S/A/B/C/D) for a comp, from the curated tftactics tier list.
+
+    Prefers the confident metaName match; otherwise borrows the tier of the
+    nearest comp by core+flex unit overlap (a ballpark "closest meta comp"
+    grade) so every comp still gets a rating. We deliberately do NOT grade from
+    our own board placements — those are harvested TOP boards, so their average
+    finish is biased and would rate everything S.
+    """
+    if match and isinstance(match.get("tier"), int):
+        return _tftactics_tier_letter(match["tier"])
+    comps = _load_tft_comps()
+    if not comps:
+        return None
+    ours = {_norm_key(u["name"]) for u in arch.get("coreUnits", [])} | \
+           {_norm_key(u["name"]) for u in arch.get("flexUnits", [])}
+    if not ours:
+        return None
+    best, best_jac = None, 0.0
+    for c in comps:
+        cu = {_norm_key(x) for x in c.get("units", [])}
+        if not cu:
+            continue
+        jac = len(ours & cu) / (len(ours | cu) or 1)
+        if jac > best_jac:
+            best, best_jac = c, jac
+    if best and best_jac >= 0.15 and isinstance(best.get("tier"), int):
+        return _tftactics_tier_letter(best["tier"])
+    return None
+
+
 def _match_tft_comp(arch: dict) -> Optional[dict]:
     """Best-matching tftactics comp by core-unit Jaccard + carry match."""
     comps = _load_tft_comps()
@@ -960,13 +996,20 @@ def _best_transition_comp(arch: dict) -> Optional[dict]:
     return best
 
 
-def _classify_opener(arch: dict, catalog: dict) -> dict:
+def _classify_opener(arch: dict, catalog: dict, meta_comp: Optional[dict] = None) -> dict:
     """Attach an early-game opener plan.
 
-    Priority: (1) the transition ("mid") board from the tftactics.gg comp whose
-    early board best pivots into OUR final board, enriched with curated nuance;
-    (2) curated per-carry opener; (3) generic data-driven fallback.
+    Priority: (1) the MATCHED meta comp's OWN early ("mid") board — so the comp
+    title, early board, and guide all describe the SAME tftactics comp. (This
+    fixes the mismatch where the early units used to come from a different comp
+    than the guide text, e.g. a Riftbeast early board under a Karma/Ahri guide.)
+    (2) the tftactics comp whose early board best pivots into our final board;
+    (3) curated per-carry opener; (4) generic data-driven fallback.
     """
+    if meta_comp:
+        op = _opener_from_tft(meta_comp, arch, catalog)
+        if op:
+            return op
     match = _best_transition_comp(arch)
     if match:
         op = _opener_from_tft(match, arch, catalog)
@@ -1832,12 +1875,18 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
                     nm, r, c = ch.get("name"), ch.get("row"), ch.get("col")
                     if nm and isinstance(r, int) and isinstance(c, int):
                         pos_overrides[_norm_key(nm)] = (r, c)
+            # Tier rating from the curated tftactics tier list (confident match,
+            # else nearest comp). Live set only — historical sets have no match.
+            if with_opener:
+                tier = _comp_tier_letter(arch, match)
+                if tier:
+                    arch["tier"] = tier
             arch["board"] = _compute_board_layout(board_units[:12], catalog, pos_overrides or None)
             # Early-game opener: what to build toward before pivoting to the
             # final board (needs carryName/category from the leveling step above).
             # Openers are curated for the live set only; skip on historical sets.
             if with_opener:
-                arch["opener"] = _classify_opener(arch, catalog)
+                arch["opener"] = _classify_opener(arch, catalog, match)
                 # In-game Team Planner code ("Copy team code") — live set only,
                 # since CDragon only publishes codes for the current set.
                 tp = catalog.get("teamPlanner") or {}
