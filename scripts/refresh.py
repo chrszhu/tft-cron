@@ -894,23 +894,154 @@ def _match_tft_comp(arch: dict) -> Optional[dict]:
     return None
 
 
+def _join_names(names: list) -> str:
+    """Human-readable ' A, B, and C' join."""
+    names = [n for n in names if n]
+    if not names:
+        return ""
+    if len(names) == 1:
+        return names[0]
+    if len(names) == 2:
+        return f"{names[0]} and {names[1]}"
+    return ", ".join(names[:-1]) + f", and {names[-1]}"
+
+
+def _units_named_in_text(text: str, catalog: dict) -> set:
+    """Champion display names (active-set catalog) explicitly named in ``text``.
+
+    Matched on non-letter boundaries so short names (Vi, Sett) don't
+    false-positive inside longer words, and apostrophe names (Rek'Sai) still
+    match. Used both to gate curated nuance and to validate that opener guide
+    text never references a unit off the board."""
+    if not text:
+        return set()
+    found: set = set()
+    for e in (catalog.get("units") or {}).values():
+        dn = (e or {}).get("name") or ""
+        if not dn:
+            continue
+        if re.search(r"(?<![A-Za-z])" + re.escape(dn) + r"(?![A-Za-z])", text, re.IGNORECASE):
+            found.add(dn)
+    return found
+
+
+def _opener_allowed_norms(op_units: list, arch: dict) -> set:
+    """Norm names allowed to appear in an opener guide: the early board plus the
+    comp's final core + flex."""
+    allowed = {_norm_key(u.get("name")) for u in (op_units or []) if u.get("name")}
+    allowed |= {_norm_key(u.get("name")) for u in arch.get("coreUnits", []) if u.get("name")}
+    allowed |= {_norm_key(u.get("name")) for u in arch.get("flexUnits", []) if u.get("name")}
+    allowed.discard("")
+    return allowed
+
+
+def _data_driven_opener_detail(early_names: list, arch: dict, catalog: dict,
+                               streak: str, play: str) -> str:
+    """Build a coherent opener guide from ONLY real board data, so it can never
+    reference an off-board unit.
+
+    Structure: what to open (early-board units) + streak plan + who holds early
+    items → then how it pivots (playstyle, the final CORE units you add, and the
+    final carry + its AD/AP itemization). Every champion named here is by
+    construction on the early board or the final core/flex.
+    """
+    early_names = [n for n in early_names if n]
+    early_norm = {_norm_key(n) for n in early_names}
+    core_names = [u.get("name") for u in arch.get("coreUnits", []) if u.get("name")]
+    carry = arch.get("carryName")
+    carry_norm = _norm_key(carry or "")
+    dmg = _carry_dmg_type(arch, catalog)
+
+    # Early item holder: a matched-comp carry that's on the early board, else the
+    # early board's final-carry, else the priciest early unit.
+    carries_norm = {_norm_key(c) for c in (arch.get("_openerCarries") or [])}
+    holder = next((n for n in early_names if _norm_key(n) in carries_norm), None)
+    if not holder and carry_norm in early_norm:
+        holder = next((n for n in early_names if _norm_key(n) == carry_norm), None)
+    if not holder and early_names:
+        holder = max(early_names,
+                     key=lambda n: (_unit_by_display_name(catalog, n) or {}).get("cost") or 0)
+
+    # Final CORE units you add (excluding what's already on the early board and
+    # the carry, which gets its own clause). Cap for brevity.
+    added = [n for n in core_names
+             if _norm_key(n) not in early_norm and _norm_key(n) != carry_norm][:3]
+    carry_named = carry if carry_norm and carry_norm in _opener_allowed_norms(
+        [{"name": n} for n in early_names], arch) else None
+
+    streak_phrase = {
+        "win": "play for a win-streak",
+        "loss": "lose-streak for econ",
+    }.get(streak, "streak either way for econ")
+
+    sentences = []
+    if early_names:
+        s = f"Open with {_join_names(early_names[:5])} and {streak_phrase}"
+        if holder:
+            s += f", holding your early items on {holder}"
+        sentences.append(s + ".")
+
+    play_ok = play if play and re.search(r"Fast|Roll|Reroll", play, re.IGNORECASE) else ""
+    lead = f"{play_ok}: " if play_ok else ""
+    pivot = None
+    if added and carry_named:
+        pivot = f"{lead}add {_join_names(added)} and move items onto {carry_named} ({dmg})"
+    elif carry_named:
+        pivot = f"{lead}itemize {carry_named} ({dmg}) as your main carry"
+    elif added:
+        pivot = f"{lead}add {_join_names(added)} to complete the board"
+    elif play_ok:
+        pivot = f"{play_ok} into your final board"
+    if pivot:
+        sentences.append(pivot[0].upper() + pivot[1:] + ".")
+
+    return " ".join(sentences).strip()
+
+
+def _sanitize_opener_detail(op: dict, arch: dict, catalog: dict) -> str:
+    """Hard guarantee: an opener's guide text never names a unit that isn't on
+    the early board or the final core/flex. If any off-board name slips in
+    (e.g. a carry-keyed curated line), rebuild the detail purely data-driven."""
+    detail = op.get("detail") or ""
+    allowed = _opener_allowed_norms(op.get("units") or [], arch)
+    bad = {n for n in _units_named_in_text(detail, catalog) if _norm_key(n) not in allowed}
+    if detail and not bad:
+        return detail
+    return _data_driven_opener_detail(
+        [u.get("name") for u in (op.get("units") or [])],
+        arch, catalog, op.get("streak", "flex"), op.get("playstyle", ""))
+
+
 def _opener_from_tft(comp: dict, arch: dict, catalog: dict) -> Optional[dict]:
-    """Build an opener from a matched tftactics comp's mid/transition board."""
+    """Build an opener from a matched tftactics comp's mid/transition board.
+
+    The guide text is generated data-driven from the REAL early + final boards
+    (never the shared/boilerplate tftactics description). We only append a
+    curated per-carry nuance line when every unit it names is actually on one of
+    those boards — otherwise the carry-keyed library could describe a totally
+    different comp (e.g. a Karma/Malphite AP line under a Veigar early board)."""
     units = _resolve_opener_units(catalog, comp.get("mid") or [])
     if not units:
         return None
-    desc = (comp.get("description") or "").strip()
     play = (comp.get("playstyle") or "").strip()
-    # Enrich with curated per-carry nuance (item slams / opener synergies) if we
-    # have it for this carry.
     carry_norm = _norm_key(arch.get("carryName") or "")
     cur = next((v for k, v in OPENER_LIBRARY.items() if _norm_key(k) == carry_norm), None)
-    detail = desc
-    if cur:
-        detail = f"{desc} {cur['detail']}".strip() if desc else cur["detail"]
+    streak = (cur or {}).get("streak", "flex")
+
+    # Pass the matched comp's carries so the holder heuristic can prefer them.
+    arch = {**arch, "_openerCarries": comp.get("carries") or []}
+    detail = _data_driven_opener_detail([u["name"] for u in units], arch, catalog, streak, play)
+
+    # Append curated item-slam nuance ONLY if it stays on-board.
+    if cur and cur.get("detail"):
+        allowed = _opener_allowed_norms(units, arch)
+        cur_named = {_norm_key(n) for n in _units_named_in_text(cur["detail"], catalog)}
+        if cur_named <= allowed:
+            detail = f"{detail} {cur['detail']}".strip()
+
     return {
         "label": comp.get("name") or "Early board",
-        "streak": (cur or {}).get("streak", "flex"),
+        "streak": streak,
         "detail": detail,
         "units": units,
         "source": "tftactics",
@@ -1011,22 +1142,27 @@ def _classify_opener(arch: dict, catalog: dict, meta_comp: Optional[dict] = None
     (2) the tftactics comp whose early board best pivots into our final board;
     (3) curated per-carry opener; (4) generic data-driven fallback.
     """
+    op = None
     if meta_comp:
         op = _opener_from_tft(meta_comp, arch, catalog)
-        if op:
-            return op
-    match = _best_transition_comp(arch)
-    if match:
-        op = _opener_from_tft(match, arch, catalog)
-        if op:
-            return op
-    carry_norm = _norm_key(arch.get("carryName") or "")
-    entry = next((v for k, v in OPENER_LIBRARY.items() if _norm_key(k) == carry_norm), None)
-    if not entry:
-        entry = _fallback_opener(arch, _carry_dmg_type(arch, catalog))
-    return {"label": entry["label"], "streak": entry.get("streak", "flex"),
-            "detail": entry["detail"], "units": _resolve_opener_units(catalog, entry.get("units", [])),
-            "source": "curated"}
+    if op is None:
+        match = _best_transition_comp(arch)
+        if match:
+            op = _opener_from_tft(match, arch, catalog)
+    if op is None:
+        carry_norm = _norm_key(arch.get("carryName") or "")
+        entry = next((v for k, v in OPENER_LIBRARY.items() if _norm_key(k) == carry_norm), None)
+        if not entry:
+            entry = _fallback_opener(arch, _carry_dmg_type(arch, catalog))
+        op = {"label": entry["label"], "streak": entry.get("streak", "flex"),
+              "detail": entry["detail"],
+              "units": _resolve_opener_units(catalog, entry.get("units", [])),
+              "source": "curated"}
+    # Hard guarantee: guide text never names an off-board unit. Rebuilds the
+    # detail purely data-driven if any curated line references a unit that isn't
+    # on this comp's early board or final core/flex.
+    op["detail"] = _sanitize_opener_detail(op, arch, catalog)
+    return op
 
 
 # ── MetaTFT recommended augments ───────────────────────────────────────────────
