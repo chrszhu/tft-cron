@@ -772,14 +772,42 @@ def _fallback_opener(arch: dict, dmg: str) -> dict:
             "detail": f"Slam IE/Deathblade and hold AD on Cinderling/Camille; win-streak to Fast 8, then itemize {carry}."}
 
 
-def _resolve_opener_units(catalog: dict, names: list) -> list:
-    """Resolve a list of unit display names to {name, iconUrl, cost} entries."""
+def _resolve_item_names(catalog: dict, names: list) -> list:
+    """Resolve item display names → [{name, iconUrl}] (icon from catalog, keeps
+    the given name even if the icon is unknown so the suggestion still shows)."""
+    if not names:
+        return []
+    icons: dict = {}
+    for v in (catalog.get("items") or {}).values():
+        nm = (v or {}).get("name")
+        if nm:
+            icons.setdefault(_norm_key(nm), (v or {}).get("iconUrl"))
+    out = []
+    for nm in names:
+        if not _norm_key(nm):
+            continue
+        out.append({"name": nm, "iconUrl": icons.get(_norm_key(nm))})
+    return out
+
+
+def _resolve_opener_units(catalog: dict, names: list,
+                          items_by_name: Optional[dict] = None) -> list:
+    """Resolve unit display names → {name, iconUrl, cost[, items]} entries.
+
+    ``items_by_name`` (norm(name) → [item display names]) attaches the early-game
+    item suggestions the meta comp recommends holding on each opener unit, so the
+    early board shows WHAT to slam and on WHOM, not just which units to play."""
+    items_by_name = items_by_name or {}
     out = []
     for nm in names:
         u = _unit_by_display_name(catalog, nm)
-        out.append({"name": (u or {}).get("name") or nm,
-                    "iconUrl": (u or {}).get("iconUrl"),
-                    "cost": (u or {}).get("cost")})
+        entry = {"name": (u or {}).get("name") or nm,
+                 "iconUrl": (u or {}).get("iconUrl"),
+                 "cost": (u or {}).get("cost")}
+        its = items_by_name.get(_norm_key(nm))
+        if its:
+            entry["items"] = _resolve_item_names(catalog, its)
+        out.append(entry)
     return out
 
 
@@ -1071,7 +1099,11 @@ def _opener_from_tft(comp: dict, arch: dict, catalog: dict) -> Optional[dict]:
     curated per-carry nuance line when every unit it names is actually on one of
     those boards — otherwise the carry-keyed library could describe a totally
     different comp (e.g. a Karma/Malphite AP line under a Veigar early board)."""
-    units = _resolve_opener_units(catalog, comp.get("mid") or [])
+    # Early-game item suggestions the meta comp holds on each opener unit
+    # (TFT Academy's earlyComp carries per-unit items; tftactics doesn't).
+    early_items = {_norm_key(u.get("name")): (u.get("items") or [])
+                   for u in (comp.get("earlyComp") or []) if u.get("name")}
+    units = _resolve_opener_units(catalog, comp.get("mid") or [], early_items)
     if not units:
         return None
     play = (comp.get("playstyle") or "").strip()
@@ -2309,15 +2341,14 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
                     car = _carousel_from_tfta(match, catalog) or _carousel_from_tft(match, catalog)
                 if car:
                     arch["carouselPriority"] = car
-                # Recommended augments (MetaTFT per-comp curated tier list),
-                # matched to this archetype by core-unit overlap. Non-fatal.
-                # MetaTFT stays primary — it ranks augments by real per-comp
-                # quality tier (S/A/B). TFT Academy only groups augments by
-                # rarity, so we fall back to its list only when MetaTFT can't
-                # match this comp (its authored augmentsTip is attached above
-                # regardless, as expert context alongside whichever list shows).
-                if not _attach_recommended_augments(arch, catalog) and match:
-                    _attach_tfta_augments(arch, match, catalog)
+                # Recommended augments: TFT Academy's expert-curated per-comp
+                # shortlist is PRIMARY (authored specifically for this comp, and
+                # what the user wants ported); MetaTFT's observed tier list is the
+                # fallback when we have no confident TFTA match. The authored
+                # augmentsTip is attached above regardless, as context alongside
+                # whichever list shows.
+                if not (match and _attach_tfta_augments(arch, match, catalog)):
+                    _attach_recommended_augments(arch, catalog)
             # Carousel priority fallback: aggregate the components a comp's item
             # holders need across their BIS items, ranked by how many are required.
             arch.setdefault("carouselPriority", _compute_carousel_priority(core_units, catalog))
