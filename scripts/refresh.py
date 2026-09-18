@@ -875,8 +875,9 @@ def _tft_position_hints() -> dict:
 
 
 def _tftactics_tier_letter(t) -> Optional[str]:
-    """Map a tftactics comp tier index (1 = best / S) to a letter grade."""
-    return {1: "S", 2: "A", 3: "B", 4: "C", 5: "D"}.get(t) if isinstance(t, int) else None
+    """Map a comp tier index (1 = best / S) to a letter grade. 6 = X = the
+    'Situational' bucket (TFT Academy's X tier) — surfaced as a distinct badge."""
+    return {1: "S", 2: "A", 3: "B", 4: "C", 5: "D", 6: "X"}.get(t) if isinstance(t, int) else None
 
 
 def _comp_tier_letter(arch: dict, match: Optional[dict]) -> Optional[str]:
@@ -1687,6 +1688,14 @@ def _attach_tfta_augments(arch: dict, match: dict, catalog: dict) -> bool:
     resolved, seen, reliant = [], set(), False
     for a in augs:
         api = a.get("apiName") or ""
+        # Skip TFT Academy's generic trait-augment placeholders
+        # (DA_BlackthornTraitAugment, DA_18_ElderwoodTraitAugment, …): these are
+        # internal "this comp can take the <Trait> trait augment" markers with no
+        # rarity/tier, not real named augments, and TFTA doesn't render them as
+        # augment chips — so they'd otherwise show as an odd "Blackthorn Trait
+        # Augment" pick users can't find on the site.
+        if "traitaugment" in re.sub(r"[^a-z0-9]", "", api.lower()):
+            continue
         name = a.get("name") or _humanize_metatft_aug(api, active)
         nkey = re.sub(r"[^a-z0-9]", "", name.lower())
         if not nkey or nkey in seen:
