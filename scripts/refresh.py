@@ -2357,7 +2357,52 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
                 tier = _comp_tier_letter(arch, match)
                 if tier:
                     arch["tier"] = tier
-            arch["board"] = _compute_board_layout(board_units[:12], catalog, pos_overrides or None)
+            # Also place the meta comp's OTHER positioned units (anything TFT
+            # Academy positions that isn't already one of our core units) so the
+            # suggested board shows the full authored formation, not just the
+            # core. These are effectively the flex / late-game additions; they're
+            # tagged in ``boardFlex`` so the frontend highlights them distinctly.
+            # We reuse our harvested flex-unit stats when available, else
+            # synthesize a minimal unit from the catalog and attach the comp's
+            # authored items so flex carries still show what to build on them.
+            board_flex = []
+            if match:
+                placed_keys = {_norm_key(u["name"]) for u in board_units}
+                flex_by_key = {_norm_key(u["name"]): u for u in flex_units}
+                char_items = {_norm_key(ch.get("name", "")): (ch.get("items") or [])
+                              for ch in (match.get("characters") or [])}
+                for ch in match.get("characters") or []:
+                    nm, r, c = ch.get("name"), ch.get("row"), ch.get("col")
+                    if not nm or not isinstance(r, int) or not isinstance(c, int):
+                        continue
+                    k = _norm_key(nm)
+                    if not k or k in placed_keys or _is_hidden_board_unit(nm):
+                        continue
+                    placed_keys.add(k)
+                    fu = flex_by_key.get(k)
+                    if fu is None:
+                        cu = _unit_by_display_name(catalog, nm)
+                        if not cu:
+                            continue
+                        items = _resolve_item_names(catalog, char_items.get(k) or [])
+                        fu = {
+                            "name": cu.get("name") or nm,
+                            "iconUrl": cu.get("iconUrl"),
+                            "cost": cu.get("cost"),
+                            "pct": 0, "count": 0,
+                            # Force item display for authored carries (BoardHex
+                            # only draws items when itemHolderPct is high enough).
+                            "itemHolderPct": 100 if items else 0,
+                            "topItems": [{"name": it["name"], "iconUrl": it.get("iconUrl"), "count": 1}
+                                         for it in items],
+                        }
+                    board_units.append(fu)
+                    board_flex.append(fu["name"])
+            if board_flex:
+                arch["boardFlex"] = board_flex
+            else:
+                arch.pop("boardFlex", None)
+            arch["board"] = _compute_board_layout(board_units[:16], catalog, pos_overrides or None)
             # Early-game opener: what to build toward before pivoting to the
             # final board (needs carryName/category from the leveling step above).
             # Openers are curated for the live set only; skip on historical sets.
