@@ -1688,14 +1688,11 @@ def _attach_tfta_augments(arch: dict, match: dict, catalog: dict) -> bool:
     resolved, seen, reliant = [], set(), False
     for a in augs:
         api = a.get("apiName") or ""
-        # Skip TFT Academy's generic trait-augment placeholders
-        # (DA_BlackthornTraitAugment, DA_18_ElderwoodTraitAugment, …): these are
-        # internal "this comp can take the <Trait> trait augment" markers with no
-        # rarity/tier, not real named augments, and TFTA doesn't render them as
-        # augment chips — so they'd otherwise show as an odd "Blackthorn Trait
-        # Augment" pick users can't find on the site.
-        if "traitaugment" in re.sub(r"[^a-z0-9]", "", api.lower()):
-            continue
+        # NOTE: TFT Academy's generic trait-augment markers
+        # (DA_BlackthornTraitAugment, DA_18_ElderwoodTraitAugment, …) carry no
+        # rarity/tier and TFTA doesn't render them as augment chips on its own
+        # site. We deliberately KEEP them here (per user request) so the comp's
+        # intended trait-augment plan is still surfaced.
         name = a.get("name") or _humanize_metatft_aug(api, active)
         nkey = re.sub(r"[^a-z0-9]", "", name.lower())
         if not nkey or nkey in seen:
