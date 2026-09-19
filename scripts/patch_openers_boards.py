@@ -86,6 +86,15 @@ def main() -> None:
                     arch["emblems"] = embs
                 else:
                     arch.pop("emblems", None)
+                # Carry/tank from TFT Academy's authored itemization (overrides
+                # our heuristic when the comp matches). Mirrors _cluster_boards.
+                allowed_keys = {r._norm_key(u.get("name", ""))
+                                for u in (arch.get("coreUnits", []) + arch.get("flexUnits", []))}
+                tfta_carry, tfta_tank = r._tfta_carry_tank(match, catalog, allowed_keys)
+                if tfta_carry:
+                    arch["carryName"] = tfta_carry
+                if tfta_tank:
+                    arch["tankName"] = tfta_tank
 
             # 1a. Recommended augments: TFT Academy primary (authored per-comp
             #     shortlist), MetaTFT fallback when there's no confident match.
@@ -145,6 +154,9 @@ def main() -> None:
             # Raptor, Sentry, …) placed on the board via TFT Academy positions
             # + art (they aren't in CDragon).
             summons = r._board_summons(match, catalog)
+            # Gate by the comp's actual traits (drops summons the comp can't spawn).
+            trait_keys = {r._norm_key(t.get("name", "")) for t in (arch.get("traits") or [])}
+            summons = [s for s in summons if r._summon_allowed(s["name"], trait_keys)]
             if summons:
                 arch["summonIcons"] = {s["name"]: s["iconUrl"] for s in summons}
             else:

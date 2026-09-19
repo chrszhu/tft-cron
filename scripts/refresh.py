@@ -587,6 +587,28 @@ def _compute_board_layout(units: list, catalog: dict, pos_overrides: Optional[di
 TFTA_CHAMPION_ICON_BASE = "https://assets.tftacademy.com/champions/champion_icons/"
 
 
+# A summon is only real if the comp actually fields the trait that spawns it.
+# This gates out false positives from imperfect comp matches (e.g. an Elderwood
+# tree attached to a comp that runs no Elderwood). Keys/values are norm'd traits.
+SUMMON_REQUIRED_TRAIT = {
+    "sentry": {"invoker"},
+    "crimson raptor": {"riftbeast", "ravager"},
+    # Elderwood pieces (Stonebark Tree / Lifeblossom / Protector) → Elderwood,
+    # matched by the "elderwood" name prefix below.
+}
+
+
+def _summon_allowed(name: str, trait_keys: set) -> bool:
+    """True if the comp's active traits can actually spawn this summon."""
+    k = _norm_key(name)
+    if k.startswith("elderwood"):
+        return "elderwood" in trait_keys
+    req = SUMMON_REQUIRED_TRAIT.get(k)
+    if req is None:
+        return True  # unknown summon → keep (fail-open)
+    return bool(req & trait_keys)
+
+
 def _board_summons(match: Optional[dict], catalog: dict) -> list:
     """Non-champion synergy pieces a comp places on its board (Elderwood
     Stonebark Tree / Lifeblossom / Protector, Crimson Raptor, Sentry, …).
@@ -687,6 +709,44 @@ def _classify_comp_leveling(core_units: list, flex_units: list, catalog: dict) -
         "carryName": (carry or {}).get("name"),
         "tankName": (tank or {}).get("name"),
     }
+
+
+def _tfta_carry_tank(match: dict, catalog: dict, allowed_keys: set) -> tuple:
+    """Derive (carryName, tankName) from a matched TFT Academy comp using its
+    authored ``finalComp`` itemization + ``mainChampion`` — a far more reliable
+    signal than our heuristic. ``mainChampion`` is the hand-authored primary
+    carry; the tank is the unit whose items are purely defensive (item_roles).
+
+    Only returns names present in ``allowed_keys`` (our board's core+flex, by
+    norm key) so we never point carry/tank at a unit we don't actually show.
+    """
+    item_roles = catalog.get("itemRoles", {})
+    fc = match.get("finalComp") or []
+    scored = []  # (name, offense_score, item_count)
+    for u in fc:
+        nm = u.get("name")
+        items = u.get("items") or []
+        if not nm or not items or _norm_key(nm) not in allowed_keys:
+            continue
+        s = sum(item_roles.get(_norm_key(it), 0) for it in items)
+        scored.append((nm, s, len(items)))
+
+    carry = None
+    main = match.get("mainChampion")
+    if main and _norm_key(main) in allowed_keys:
+        carry = main
+    if not carry:
+        off = [x for x in scored if x[1] > 0]
+        if off:
+            carry = max(off, key=lambda x: (x[1], x[2]))[0]
+
+    tank = None
+    defensive = [x for x in scored if x[1] <= 0 and (carry is None or _norm_key(x[0]) != _norm_key(carry))]
+    if defensive:
+        # Most negative score = most defensive; break ties by item count.
+        tank = min(defensive, key=lambda x: (x[1], -x[2]))[0]
+
+    return carry, tank
 
 
 # ── Early-game openers ──────────────────────────────────────────────────────────
@@ -2382,6 +2442,15 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
                     arch["emblems"] = embs
                 else:
                     arch.pop("emblems", None)
+                # Carry/tank from TFT Academy's authored itemization — override
+                # our heuristic when the comp matches (mainChampion = primary
+                # carry; purely-defensive itemized unit = main tank).
+                allowed_keys = {_norm_key(u.get("name", "")) for u in (core_units + flex_units)}
+                tfta_carry, tfta_tank = _tfta_carry_tank(match, catalog, allowed_keys)
+                if tfta_carry:
+                    arch["carryName"] = tfta_carry
+                if tfta_tank:
+                    arch["tankName"] = tfta_tank
             # Tier rating from the curated tftactics tier list (confident match,
             # else nearest comp). Live set only — historical sets have no match.
             if with_opener:
@@ -2414,6 +2483,10 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
             # Academy). Positioned exactly via pos_overrides (already populated
             # above from the same characters) and rendered from TFTA art.
             summons = _board_summons(match, catalog) if with_opener else []
+            # Gate summons by the comp's actual traits so we never show a piece
+            # the comp can't spawn (removes false positives from loose matches).
+            trait_keys = {_norm_key(t.get("name", "")) for t in (arch.get("traits") or [])}
+            summons = [s for s in summons if _summon_allowed(s["name"], trait_keys)]
             if summons:
                 arch["summonIcons"] = {s["name"]: s["iconUrl"] for s in summons}
             else:
