@@ -712,41 +712,33 @@ def _classify_comp_leveling(core_units: list, flex_units: list, catalog: dict) -
 
 
 def _tfta_carry_tank(match: dict, catalog: dict, allowed_keys: set) -> tuple:
-    """Derive (carryName, tankName) from a matched TFT Academy comp using its
-    authored ``finalComp`` itemization + ``mainChampion`` — a far more reliable
-    signal than our heuristic. ``mainChampion`` is the hand-authored primary
-    carry; the tank is the unit whose items are purely defensive (item_roles).
+    """Derive the carry/tank ITEM HOLDERS from a matched TFT Academy comp's
+    authored ``finalComp`` itemization. A comp can have several carries and/or
+    tanks — classification is purely by the units' items (NOT ``mainChampion``,
+    which is just the comp's name unit and is often a tank, e.g. Malphite).
 
-    Only returns names present in ``allowed_keys`` (our board's core+flex, by
-    norm key) so we never point carry/tank at a unit we don't actually show.
+    A unit whose items sum to an offensive role is a carry; a defensive sum is a
+    tank. Returns ``(carries, tanks)`` — ordered lists of display names, each
+    strongest-first. Only includes units in ``allowed_keys`` (our board's
+    core+flex) so we never point at a unit we don't show.
     """
     item_roles = catalog.get("itemRoles", {})
     fc = match.get("finalComp") or []
-    scored = []  # (name, offense_score, item_count)
+    carries, tanks = [], []  # each: (name, magnitude, item_count)
     for u in fc:
         nm = u.get("name")
         items = u.get("items") or []
         if not nm or not items or _norm_key(nm) not in allowed_keys:
             continue
-        s = sum(item_roles.get(_norm_key(it), 0) for it in items)
-        scored.append((nm, s, len(items)))
+        score = sum(item_roles.get(_norm_key(it), 0) for it in items)
+        if score < 0:
+            tanks.append((nm, -score, len(items)))
+        else:  # >0 offensive, ==0 utility/mixed → treat as a carry holder
+            carries.append((nm, score, len(items)))
 
-    carry = None
-    main = match.get("mainChampion")
-    if main and _norm_key(main) in allowed_keys:
-        carry = main
-    if not carry:
-        off = [x for x in scored if x[1] > 0]
-        if off:
-            carry = max(off, key=lambda x: (x[1], x[2]))[0]
-
-    tank = None
-    defensive = [x for x in scored if x[1] <= 0 and (carry is None or _norm_key(x[0]) != _norm_key(carry))]
-    if defensive:
-        # Most negative score = most defensive; break ties by item count.
-        tank = min(defensive, key=lambda x: (x[1], -x[2]))[0]
-
-    return carry, tank
+    carries.sort(key=lambda x: (-x[1], -x[2]))
+    tanks.sort(key=lambda x: (-x[1], -x[2]))
+    return [c[0] for c in carries], [t[0] for t in tanks]
 
 
 # ── Early-game openers ──────────────────────────────────────────────────────────
@@ -2442,15 +2434,17 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
                     arch["emblems"] = embs
                 else:
                     arch.pop("emblems", None)
-                # Carry/tank from TFT Academy's authored itemization — override
-                # our heuristic when the comp matches (mainChampion = primary
-                # carry; purely-defensive itemized unit = main tank).
+                # Carry/tank ITEM HOLDERS from TFT Academy's authored itemization
+                # (classified by item type; a comp can have multiple carries and
+                # tanks). Overrides our heuristic when the comp matches.
                 allowed_keys = {_norm_key(u.get("name", "")) for u in (core_units + flex_units)}
-                tfta_carry, tfta_tank = _tfta_carry_tank(match, catalog, allowed_keys)
-                if tfta_carry:
-                    arch["carryName"] = tfta_carry
-                if tfta_tank:
-                    arch["tankName"] = tfta_tank
+                tfta_carries, tfta_tanks = _tfta_carry_tank(match, catalog, allowed_keys)
+                if tfta_carries:
+                    arch["carries"] = tfta_carries
+                    arch["carryName"] = tfta_carries[0]
+                if tfta_tanks:
+                    arch["tanks"] = tfta_tanks
+                    arch["tankName"] = tfta_tanks[0]
             # Tier rating from the curated tftactics tier list (confident match,
             # else nearest comp). Live set only — historical sets have no match.
             if with_opener:

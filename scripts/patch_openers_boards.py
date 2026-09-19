@@ -86,15 +86,21 @@ def main() -> None:
                     arch["emblems"] = embs
                 else:
                     arch.pop("emblems", None)
-                # Carry/tank from TFT Academy's authored itemization (overrides
-                # our heuristic when the comp matches). Mirrors _cluster_boards.
+                # Carry/tank item holders from TFT Academy's authored itemization
+                # (multiple possible; classified by item type). Mirrors _cluster_boards.
                 allowed_keys = {r._norm_key(u.get("name", ""))
                                 for u in (arch.get("coreUnits", []) + arch.get("flexUnits", []))}
-                tfta_carry, tfta_tank = r._tfta_carry_tank(match, catalog, allowed_keys)
-                if tfta_carry:
-                    arch["carryName"] = tfta_carry
-                if tfta_tank:
-                    arch["tankName"] = tfta_tank
+                tfta_carries, tfta_tanks = r._tfta_carry_tank(match, catalog, allowed_keys)
+                if tfta_carries:
+                    arch["carries"] = tfta_carries
+                    arch["carryName"] = tfta_carries[0]
+                else:
+                    arch.pop("carries", None)
+                if tfta_tanks:
+                    arch["tanks"] = tfta_tanks
+                    arch["tankName"] = tfta_tanks[0]
+                else:
+                    arch.pop("tanks", None)
 
             # 1a. Recommended augments: TFT Academy primary (authored per-comp
             #     shortlist), MetaTFT fallback when there's no confident match.
