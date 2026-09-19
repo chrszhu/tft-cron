@@ -156,6 +156,10 @@ def _units_block(block) -> list:
         rc = _rc(u.get("boardIndex"))
         entry = {
             "name": name,
+            # Raw apiName kept so downstream can resolve icons for non-champion
+            # synergy summons (Elderwood Stonebark Tree, Crimson Raptor, …) that
+            # aren't in CDragon — TFT Academy serves their art keyed by apiName.
+            "apiName": u.get("apiName"),
             "items": [_humanize(it) for it in (u.get("items") or []) if it],
             "stars": u.get("stars") or 1,
             "row": rc["row"],
@@ -210,7 +214,8 @@ def _normalize(g: dict) -> dict:
         "carries": carries,
         "mid": [u["name"] for u in early],
         "carrousel": [],  # legacy tftactics pair-shape; superseded by `carousel`
-        "characters": [{"name": u["name"], "items": u["items"],
+        "characters": [{"name": u["name"], "apiName": u.get("apiName"),
+                        "items": u["items"],
                         "row": u["row"], "col": u["col"]} for u in final],
         # new TFT Academy enrichment fields ──────────────────────────────────
         "source": "tftacademy",

@@ -582,6 +582,37 @@ def _compute_board_layout(units: list, catalog: dict, pos_overrides: Optional[di
     return grid
 
 
+# TFT Academy serves champion/summon art keyed by apiName — the only public
+# source for non-champion synergy pieces (they aren't in CDragon at all).
+TFTA_CHAMPION_ICON_BASE = "https://assets.tftacademy.com/champions/champion_icons/"
+
+
+def _board_summons(match: Optional[dict], catalog: dict) -> list:
+    """Non-champion synergy pieces a comp places on its board (Elderwood
+    Stonebark Tree / Lifeblossom / Protector, Crimson Raptor, Sentry, …).
+
+    These aren't Riot champions and don't exist in CDragon, but TFT Academy
+    authors their board position and serves their art keyed by apiName. Returns
+    ``[{name, iconUrl, row, col}]`` so they can be placed on the suggested board
+    and rendered by the frontend just like a real unit."""
+    out, seen = [], set()
+    for ch in (match or {}).get("characters") or []:
+        nm, api = ch.get("name"), ch.get("apiName")
+        row, col = ch.get("row"), ch.get("col")
+        if not nm or not api or not isinstance(row, int) or not isinstance(col, int):
+            continue
+        # Real champions render from the catalog; only summons need this path.
+        if _unit_by_display_name(catalog, nm):
+            continue
+        k = _norm_key(nm)
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append({"name": nm, "iconUrl": f"{TFTA_CHAMPION_ICON_BASE}{api}.webp",
+                    "row": row, "col": col})
+    return out
+
+
 # Standard TFT leveling curves + roll guidance per category, following the
 # patterns used by high-level guides (e.g. bunnymuffins.lol): a level-by-round
 # curve ("Lx @stage") plus SEPARATE roll/stop guidance (a condition, not a final
@@ -2379,7 +2410,16 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
                 arch["boardFlex"] = board_flex
             else:
                 arch.pop("boardFlex", None)
-            arch["board"] = _compute_board_layout(board_units[:18], catalog, pos_overrides or None)
+            # Non-champion synergy summons the comp places on its board (from TFT
+            # Academy). Positioned exactly via pos_overrides (already populated
+            # above from the same characters) and rendered from TFTA art.
+            summons = _board_summons(match, catalog) if with_opener else []
+            if summons:
+                arch["summonIcons"] = {s["name"]: s["iconUrl"] for s in summons}
+            else:
+                arch.pop("summonIcons", None)
+            summon_units = [{"name": s["name"]} for s in summons]
+            arch["board"] = _compute_board_layout(board_units[:18] + summon_units, catalog, pos_overrides or None)
             # Early-game opener: what to build toward before pivoting to the
             # final board (needs carryName/category from the leveling step above).
             # Openers are curated for the live set only; skip on historical sets.
