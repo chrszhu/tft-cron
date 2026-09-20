@@ -881,16 +881,26 @@ def _resolve_item_names(catalog: dict, names: list) -> list:
 
 
 def _resolve_opener_units(catalog: dict, names: list,
-                          items_by_name: Optional[dict] = None) -> list:
+                          items_by_name: Optional[dict] = None,
+                          api_by_name: Optional[dict] = None) -> list:
     """Resolve unit display names → {name, iconUrl, cost[, items]} entries.
 
     ``items_by_name`` (norm(name) → [item display names]) attaches the early-game
     item suggestions the meta comp recommends holding on each opener unit, so the
-    early board shows WHAT to slam and on WHOM, not just which units to play."""
+    early board shows WHAT to slam and on WHOM, not just which units to play.
+
+    ``api_by_name`` (norm(name) → apiName) lets us resolve a piece by its exact
+    apiName first — the CDragon units map is keyed by apiName, so pieces TFTA
+    humanizes differently than CDragon (e.g. ``DA_18_Sentry`` is "Pebbles" in
+    CDragon but "Sentry" on TFTA) get the correct in-game name/icon instead of a
+    broken TFTA humanization."""
     items_by_name = items_by_name or {}
+    api_by_name = api_by_name or {}
+    units_cat = catalog.get("units") or {}
     out = []
     for nm in names:
-        u = _unit_by_display_name(catalog, nm)
+        api = api_by_name.get(_norm_key(nm))
+        u = (units_cat.get(api) if api else None) or _unit_by_display_name(catalog, nm)
         entry = {"name": (u or {}).get("name") or nm,
                  "iconUrl": (u or {}).get("iconUrl"),
                  "cost": (u or {}).get("cost")}
@@ -1194,7 +1204,12 @@ def _opener_from_tft(comp: dict, arch: dict, catalog: dict) -> Optional[dict]:
     # (TFT Academy's earlyComp carries per-unit items; tftactics doesn't).
     early_items = {_norm_key(u.get("name")): (u.get("items") or [])
                    for u in (comp.get("earlyComp") or []) if u.get("name")}
-    units = _resolve_opener_units(catalog, comp.get("mid") or [], early_items)
+    # norm(display) → apiName so pieces CDragon names differently than TFTA
+    # (e.g. Sentry → DA_18_Sentry → "Pebbles") resolve to the real unit.
+    api_by_name = {_norm_key(u.get("name")): u.get("apiName")
+                   for u in (comp.get("earlyComp") or [])
+                   if u.get("name") and u.get("apiName")}
+    units = _resolve_opener_units(catalog, comp.get("mid") or [], early_items, api_by_name)
     if not units:
         return None
     play = (comp.get("playstyle") or "").strip()
