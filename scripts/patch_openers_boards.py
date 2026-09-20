@@ -61,10 +61,20 @@ def main() -> None:
                 if match.get("name"):
                     arch["metaName"] = match["name"]
                     named += 1
+                board_items = {}
                 for ch in match.get("characters") or []:
                     nm, row, col = ch.get("name"), ch.get("row"), ch.get("col")
                     if nm and isinstance(row, int) and isinstance(col, int):
                         pos_overrides[r._norm_key(nm)] = (row, col)
+                    its = ch.get("items") or []
+                    if nm and its:
+                        board_items[nm] = its
+                # Authored per-unit item build (TFT Academy finalComp) — shown on
+                # the board and prioritized in the build finder.
+                if board_items:
+                    arch["boardItems"] = board_items
+                else:
+                    arch.pop("boardItems", None)
                 # Authored TFT Academy enrichment (no-op on the tftactics dataset).
                 tips = [t for t in (match.get("tips") or [])
                         if isinstance(t, dict) and t.get("tip")]

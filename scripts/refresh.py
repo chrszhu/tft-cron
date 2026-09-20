@@ -737,6 +737,10 @@ def _tfta_carry_tank(match: dict, catalog: dict, allowed_keys: set) -> tuple:
         items = u.get("items") or []
         if not nm or not items or _norm_key(nm) not in allowed_keys:
             continue
+        # Skip non-champion synergy summons (Sentinel, Elderwood pieces, …): they
+        # aren't real item holders, so they must never show as the "main tank".
+        if not _unit_by_display_name(catalog, nm):
+            continue
         score = sum(item_roles.get(_norm_key(it), 0) for it in items)
         if score < 0:
             tanks.append((nm, -score, len(items)))
@@ -2437,10 +2441,21 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
             if match:
                 if match.get("name"):
                     arch["metaName"] = match["name"]
+                board_items = {}
                 for ch in match.get("characters") or []:
                     nm, r, c = ch.get("name"), ch.get("row"), ch.get("col")
                     if nm and isinstance(r, int) and isinstance(c, int):
                         pos_overrides[_norm_key(nm)] = (r, c)
+                    its = ch.get("items") or []
+                    if nm and its:
+                        board_items[nm] = its
+                # Authored item build per board unit (TFT Academy finalComp) — the
+                # main-priority items to show ON the board / prioritize in the
+                # build finder, keyed by display name.
+                if board_items:
+                    arch["boardItems"] = board_items
+                else:
+                    arch.pop("boardItems", None)
                 # Authored enrichment from TFT Academy (no-ops for the older
                 # tftactics dataset, which lacks these fields):
                 #  • stageTips  — comp-specific stage-by-stage roll/level guidance
