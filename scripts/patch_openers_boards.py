@@ -52,18 +52,14 @@ def main() -> None:
         wb = snap.get("winningBoards") or {}
         archs = wb.get("archetypes") or []
         changed_open = changed_board = named = aug_attached = 0
-        used_meta_names: set = set()  # dedupe meta board names across archetypes
         for arch in archs:
-            # 1. Prominent meta board name + exact positions from the matched
+            # 1. Exact board positions + authored enrichment from the matched
             #    comp. Computed first so the opener can reuse the SAME comp.
+            #    (The prominent board NAME is assigned globally AFTER this loop
+            #    by r._assign_meta_names, using TFTA titles by unit overlap.)
             match = r._match_tft_comp(arch)
             pos_overrides: dict = {}
             if match:
-                # Name only if the arch fields this comp's primary carry (guards
-                # against mislabelling a carry-less board), deduped across archs.
-                r._apply_meta_name(arch, match, used_meta_names)
-                if arch.get("metaName"):
-                    named += 1
                 board_items = {}
                 for ch in match.get("characters") or []:
                     nm, row, col = ch.get("name"), ch.get("row"), ch.get("col")
@@ -194,6 +190,12 @@ def main() -> None:
             tc = r._team_code([u.get("name") for u in bu], tp, aset)
             if tc:
                 arch["teamCode"] = tc
+
+        # Prominent board NAME: global, collision-avoiding assignment of TFT
+        # Academy titles by unit overlap (so distinct Sivir lines stay distinct
+        # and the named carry is always on the board).
+        r._assign_meta_names(archs, catalog)
+        named = sum(1 for a in archs if a.get("metaName"))
 
         with open(path, "w") as f:
             json.dump(snap, f, ensure_ascii=False, separators=(",", ":"))

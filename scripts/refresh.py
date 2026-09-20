@@ -673,11 +673,11 @@ LEVELING_GUIDE = {
 
 # Units that are NEVER a primary carry, even when TFT Academy's authored build
 # or our item heuristic assigns them offensive items. Enchanters / supports
-# (Ivern, Nidalee) and non-champion monster/summon pieces (Elder Dragon) show up
-# itemized in sample data but must not drive the "Main" carry designation or the
-# comp NAME. Deliberately conservative — only units we're confident are never a
-# primary carry, so we never strip a legit carry. normName keys.
-NON_CARRY_UNITS = {"ivern", "nidalee", "elderdragon"}
+# (Ivern, Nidalee) show up itemized in sample data but must not drive the "Main"
+# carry designation or headline a comp name. Deliberately conservative — only
+# units we're confident are never a primary carry (NOTE: Elder Dragon IS a legit
+# carry and is intentionally NOT here). normName keys.
+NON_CARRY_UNITS = {"ivern", "nidalee"}
 
 
 def _is_non_carry(name: str) -> bool:
@@ -1085,48 +1085,90 @@ def _match_tft_comp(arch: dict) -> Optional[dict]:
     return None
 
 
-def _comp_primary_carry(match: dict) -> str:
-    """Norm-key of a TFT comp's primary carry: its first listed carry, else its
-    ``mainChampion``. Used to gate whether the comp's NAME may be applied."""
-    carries = match.get("carries") or []
-    if carries:
-        return _norm_key(carries[0] or "")
-    return _norm_key(match.get("mainChampion") or "")
+def _arch_unit_norms(arch: dict) -> set:
+    """Norm-keys of an archetype's core + flex units (what's on our board)."""
+    return {_norm_key(u.get("name") or "") for u in
+            (arch.get("coreUnits") or []) + (arch.get("flexUnits") or [])} - {""}
 
 
-def _arch_contains_unit(arch: dict, unit_norm: str) -> bool:
-    """True if the archetype's core/flex units include ``unit_norm``."""
-    if not unit_norm:
-        return False
-    for u in (arch.get("coreUnits") or []) + (arch.get("flexUnits") or []):
-        if _norm_key(u.get("name") or "") == unit_norm:
-            return True
-    return False
+# Thresholds to borrow a TFT Academy comp's TITLE: a minimum unit-set Jaccard
+# AND a minimum count of shared units, so a tiny TFTA line (e.g. a 2-unit
+# "LeBlanc Weavers") can't inflate its Jaccard and mislabel a full 8-unit board.
+_META_NAME_MIN_JACCARD = 0.18
+_META_NAME_MIN_SHARED = 3
 
 
-def _apply_meta_name(arch: dict, match: Optional[dict], used_names: set) -> None:
-    """Apply the matched comp's board NAME to ``arch`` — but only if the archetype
-    actually fields that comp's PRIMARY carry, and no other archetype already
-    claimed the name. A high support-unit overlap alone must NOT rename a board
-    (e.g. a carry-less Vanguard/Riftbeast board mislabelled "Draven Fast 9");
-    such boards fall back to the carry+category name (metaName left unset)."""
-    name = (match or {}).get("name")
-    if not name:
-        arch.pop("metaName", None)
+def _assign_meta_names(archs: list, catalog: dict | None = None) -> None:
+    """Name every archetype after the TFT Academy comp it best matches by UNIT
+    OVERLAP, using TFTA's exact title — so the named carry is always on our board
+    and distinct TFTA lines that share a carry (e.g. "Primal Sivir" vs "Sivir
+    Flex") stay distinct.
+
+    Global, collision-avoiding assignment: rank each arch's candidate TFTA titles
+    by unit Jaccard (bonus when the TFTA headline carry equals our Main carry),
+    require the TFTA headline carry (``mainChampion``) to be ON our board, then
+    hand out titles strongest-confidence-first, skipping any title already taken
+    so a second Sivir board falls to the next-best distinct Sivir line.
+
+    Denylist rule: never headline a comp with Ivern/Nidalee — skip TFTA comps
+    whose ``mainChampion`` is denylisted and skip titles that START with one
+    (e.g. "Nidalee Aphelios") — but a denylisted word later in a legit title
+    (e.g. "Primal Nidalee Sivir", headline Sivir) is fine.
+    """
+    comps = _load_tft_comps()
+    if not comps:
+        for a in archs:
+            a.pop("metaName", None)
         return
-    pc = _comp_primary_carry(match)
-    # Never title a comp after a denylisted non-carry: reject if the comp's
-    # headline carry is denylisted OR the authored name simply begins with one
-    # (e.g. "Elder Dragon Fast 9", "Nidalee Aphelios"). Such comps fall back to
-    # the carry+category name built from the real (denylist-filtered) carry.
-    if pc in NON_CARRY_UNITS or _name_starts_with_non_carry(name):
-        arch.pop("metaName", None)
-        return
-    if pc and _arch_contains_unit(arch, pc) and name not in used_names:
-        arch["metaName"] = name
-        used_names.add(name)
-    else:
-        arch.pop("metaName", None)
+
+    # Precompute usable TFTA naming candidates.
+    tcomps = []  # {title, main(normkey), units(set)}
+    for c in comps:
+        title = c.get("name")
+        if not title or _name_starts_with_non_carry(title):
+            continue
+        main = c.get("mainChampion") or (c.get("carries") or [None])[0]
+        main_k = _norm_key(main or "")
+        if not main_k or main_k in NON_CARRY_UNITS:
+            continue
+        units = {_norm_key(u) for u in (c.get("units") or [])} - {""}
+        if not units:
+            continue
+        tcomps.append({"title": title, "main": main_k, "units": units})
+
+    # Score every (archetype, TFTA title) pair by unit overlap; the named carry
+    # (TFTA ``mainChampion``) MUST be on our board, and a comp whose headline
+    # carry equals our Main carry gets a bonus so a carry's own title wins for
+    # that carry's board (e.g. Elder Dragon board → "Elder Dragon Fast 9").
+    pairs = []  # (score, jac, arch_idx, title)
+    for idx, a in enumerate(archs):
+        au = _arch_unit_norms(a)
+        carry0 = _norm_key(a.get("carryName") or "")
+        for tc in tcomps:
+            if tc["main"] not in au:  # the named carry MUST be on our board
+                continue
+            shared = len(au & tc["units"])
+            jac = shared / (len(au | tc["units"]) or 1)
+            if jac < _META_NAME_MIN_JACCARD or shared < _META_NAME_MIN_SHARED:
+                continue
+            score = jac + (0.25 if tc["main"] == carry0 else 0.0)
+            pairs.append((score, jac, idx, tc["title"]))
+
+    # Global max-weight greedy: assign the strongest pairing first, so each
+    # distinct TFTA line lands on the archetype it fits best and two boards
+    # sharing a carry (the Sivir case) fall onto different distinct titles.
+    pairs.sort(key=lambda x: (-x[0], -x[1], x[3]))
+    assigned: set = set()
+    used_titles: set = set()
+    for score, jac, idx, title in pairs:
+        if idx in assigned or title in used_titles:
+            continue
+        archs[idx]["metaName"] = title
+        assigned.add(idx)
+        used_titles.add(title)
+    for idx, a in enumerate(archs):
+        if idx not in assigned:
+            a.pop("metaName", None)
 
 
 def _join_names(names: list) -> str:
@@ -2460,7 +2502,6 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
                 unit_to_clusters.setdefault(u, set()).add(j)
 
     results = []
-    used_meta_names: set = set()  # dedupe meta board names across archetypes
     for indices in cluster_members:
         if len(indices) < min_size:
             continue
@@ -2565,9 +2606,6 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
             match = _match_tft_comp(arch) if with_opener else None
             pos_overrides: dict = {}
             if match:
-                # Name only if the arch fields this comp's primary carry (guards
-                # against mislabelling a carry-less board), deduped across archs.
-                _apply_meta_name(arch, match, used_meta_names)
                 board_items = {}
                 for ch in match.get("characters") or []:
                     nm, r, c = ch.get("name"), ch.get("row"), ch.get("col")
@@ -2727,6 +2765,10 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
         if n:
             arch["id"] = f"{base}-{n}"
         seen_ids[base] = n + 1
+    # Names come from TFT Academy titles via a global, collision-avoiding
+    # unit-overlap match (live set only — historical sets have no TFTA comps).
+    if with_opener and catalog:
+        _assign_meta_names(top, catalog)
     return top
 
 
