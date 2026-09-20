@@ -618,13 +618,20 @@ def _board_summons(match: Optional[dict], catalog: dict) -> list:
     ``[{name, iconUrl, row, col}]`` so they can be placed on the suggested board
     and rendered by the frontend just like a real unit."""
     out, seen = [], set()
+    units_cat = catalog.get("units") or {}
     for ch in (match or {}).get("characters") or []:
         nm, api = ch.get("name"), ch.get("apiName")
         row, col = ch.get("row"), ch.get("col")
         if not nm or not api or not isinstance(row, int) or not isinstance(col, int):
             continue
         # Real champions render from the catalog; only summons need this path.
-        if _unit_by_display_name(catalog, nm):
+        # Match by BOTH display name AND apiName: some pieces are real CDragon
+        # units under a *different* display name than TFT Academy uses (e.g.
+        # DA_18_Sentry is "Pebbles" in CDragon but "Sentry" on TFTA; DA_CrimsonRaptor18
+        # is "Mama Beak" vs "Crimson Raptor"). Those already appear on the board as
+        # the real unit from Riot match data, so emitting them here too would
+        # duplicate the piece ("two Pebbles"). Skipping by apiName removes the dupe.
+        if _unit_by_display_name(catalog, nm) or api in units_cat or api.lower() in units_cat:
             continue
         k = _norm_key(nm)
         if k in seen:
