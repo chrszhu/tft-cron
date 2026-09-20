@@ -745,6 +745,18 @@ def _tfta_carry_tank(match: dict, catalog: dict, allowed_keys: set) -> tuple:
 
     carries.sort(key=lambda x: (-x[1], -x[2]))
     tanks.sort(key=lambda x: (-x[1], -x[2]))
+
+    # Promote TFT Academy's headline ``mainChampion`` to the FRONT of whichever
+    # list it lands in — it's the comp's designated PRIMARY carry (or primary
+    # tank for reroll-tank comps like Malphite). This fixes comps that were named
+    # after / led by a secondary carry with a higher raw item score.
+    main_k = _norm_key(match.get("mainChampion") or "")
+    if main_k:
+        for lst in (carries, tanks):
+            for i, entry in enumerate(lst):
+                if _norm_key(entry[0]) == main_k:
+                    lst.insert(0, lst.pop(i))
+                    break
     return [c[0] for c in carries], [t[0] for t in tanks]
 
 
@@ -2446,7 +2458,8 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
                     arch["lateGame"] = [
                         {"name": u.get("name"),
                          "replaces": (u.get("replaces") or [None])[0],
-                         "items": u.get("items") or []}
+                         "items": u.get("items") or [],
+                         "addLevel": u.get("addLevel")}
                         for u in match["maxCap"] if u.get("name")
                     ]
                 if match.get("augmentsTip"):

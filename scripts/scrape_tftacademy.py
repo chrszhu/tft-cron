@@ -165,9 +165,23 @@ def _units_block(block) -> list:
             "row": rc["row"],
             "col": rc["col"],
         }
-        preds = [_humanize(p) for p in (u.get("predecessors") or []) if p]
-        if preds:
-            entry["replaces"] = [p for p in preds if p and not p.startswith("TFT")]
+        # Predecessors are either the unit(s) this addition replaces (real champ
+        # apiNames) OR a level token like ``TFT_Flex_Lv9`` meaning "add at level
+        # 9". Split them: keep real replacements, and surface the level context.
+        replaces, add_level = [], None
+        for p in (u.get("predecessors") or []):
+            if not p:
+                continue
+            m = re.search(r"Lv(\d+)", p)
+            if p.startswith("TFT") or m:
+                if m:
+                    add_level = int(m.group(1))
+                continue
+            replaces.append(_humanize(p))
+        if replaces:
+            entry["replaces"] = replaces
+        if add_level is not None:
+            entry["addLevel"] = add_level
         out.append(entry)
     return out
 

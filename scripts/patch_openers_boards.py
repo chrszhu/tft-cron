@@ -76,7 +76,8 @@ def main() -> None:
                     arch["lateGame"] = [
                         {"name": u.get("name"),
                          "replaces": (u.get("replaces") or [None])[0],
-                         "items": u.get("items") or []}
+                         "items": u.get("items") or [],
+                         "addLevel": u.get("addLevel")}
                         for u in match["maxCap"] if u.get("name")
                     ]
                 if match.get("augmentsTip"):
