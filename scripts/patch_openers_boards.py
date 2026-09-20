@@ -116,6 +116,11 @@ def main() -> None:
                 else:
                     arch.pop("tanks", None)
 
+            # Safety: never leave a denylisted non-carry (Ivern/Nidalee/Elder
+            # Dragon) as the Main carry, even if a stale snapshot value survived.
+            if r._is_non_carry(arch.get("carryName")):
+                arch.pop("carryName", None)
+
             # 1a. Recommended augments: TFT Academy primary (authored per-comp
             #     shortlist), MetaTFT fallback when there's no confident match.
             if match and r._attach_tfta_augments(arch, match, catalog):

@@ -671,6 +671,30 @@ LEVELING_GUIDE = {
 }
 
 
+# Units that are NEVER a primary carry, even when TFT Academy's authored build
+# or our item heuristic assigns them offensive items. Enchanters / supports
+# (Ivern, Nidalee) and non-champion monster/summon pieces (Elder Dragon) show up
+# itemized in sample data but must not drive the "Main" carry designation or the
+# comp NAME. Deliberately conservative — only units we're confident are never a
+# primary carry, so we never strip a legit carry. normName keys.
+NON_CARRY_UNITS = {"ivern", "nidalee", "elderdragon"}
+
+
+def _is_non_carry(name: str) -> bool:
+    """True if ``name`` is on the never-a-primary-carry denylist."""
+    return _norm_key(name or "") in NON_CARRY_UNITS
+
+
+def _name_starts_with_non_carry(name: str) -> bool:
+    """True if a comp name begins with a denylisted unit (e.g. "Elder Dragon
+    Fast 9", "Nidalee Aphelios") — such names imply a wrong primary carry."""
+    words = (name or "").split()
+    for i in range(1, min(3, len(words)) + 1):  # unit names are ≤ ~3 words
+        if _norm_key("".join(words[:i])) in NON_CARRY_UNITS:
+            return True
+    return False
+
+
 def _classify_comp_leveling(core_units: list, flex_units: list, catalog: dict) -> dict:
     """
     Categorize a comp into a leveling archetype (reroll vs carry vs fast 9) and
@@ -692,13 +716,15 @@ def _classify_comp_leveling(core_units: list, flex_units: list, catalog: dict) -
     def holder_score(u: dict):
         return (u.get("itemHolderPct") or 0, cost(u))
 
-    carries = [u for u in units if _classify_board_role(u, item_roles) == "carry"]
+    carries = [u for u in units
+               if _classify_board_role(u, item_roles) == "carry" and not _is_non_carry(u.get("name"))]
     tanks = [u for u in units if _classify_board_role(u, item_roles) == "tank"]
     carry = max(carries, key=holder_score) if carries else None
     tank = max(tanks, key=holder_score) if tanks else None
 
     # Reroll comps are defined by 3-starring a low-cost unit.
-    reroll = [u for u in units if (u.get("threeStarPct") or 0) >= 35 and 1 <= cost(u) <= 3]
+    reroll = [u for u in units
+              if (u.get("threeStarPct") or 0) >= 35 and 1 <= cost(u) <= 3 and not _is_non_carry(u.get("name"))]
     if reroll:
         rc = max(reroll, key=lambda u: (u.get("threeStarPct") or 0, cost(u)))
         category = f"{cost(rc)}-Cost Reroll"
@@ -750,12 +776,18 @@ def _tfta_carry_tank(match: dict, catalog: dict, allowed_keys: set) -> tuple:
     carries.sort(key=lambda x: (-x[1], -x[2]))
     tanks.sort(key=lambda x: (-x[1], -x[2]))
 
+    # Drop never-a-primary-carry units (Ivern/Nidalee/Elder Dragon) from the
+    # carries list BEFORE anyone reads carries[0] — they must never be the Main
+    # carry nor drive the comp name, even if TFTA gave them offensive items.
+    carries = [c for c in carries if not _is_non_carry(c[0])]
+
     # Promote TFT Academy's headline ``mainChampion`` to the FRONT of whichever
     # list it lands in — it's the comp's designated PRIMARY carry (or primary
     # tank for reroll-tank comps like Malphite). This fixes comps that were named
-    # after / led by a secondary carry with a higher raw item score.
+    # after / led by a secondary carry with a higher raw item score. Skip when
+    # the mainChampion is a denylisted non-carry (don't resurrect it as primary).
     main_k = _norm_key(match.get("mainChampion") or "")
-    if main_k:
+    if main_k and main_k not in NON_CARRY_UNITS:
         for lst in (carries, tanks):
             for i, entry in enumerate(lst):
                 if _norm_key(entry[0]) == main_k:
@@ -1083,6 +1115,13 @@ def _apply_meta_name(arch: dict, match: Optional[dict], used_names: set) -> None
         arch.pop("metaName", None)
         return
     pc = _comp_primary_carry(match)
+    # Never title a comp after a denylisted non-carry: reject if the comp's
+    # headline carry is denylisted OR the authored name simply begins with one
+    # (e.g. "Elder Dragon Fast 9", "Nidalee Aphelios"). Such comps fall back to
+    # the carry+category name built from the real (denylist-filtered) carry.
+    if pc in NON_CARRY_UNITS or _name_starts_with_non_carry(name):
+        arch.pop("metaName", None)
+        return
     if pc and _arch_contains_unit(arch, pc) and name not in used_names:
         arch["metaName"] = name
         used_names.add(name)
@@ -2027,6 +2066,9 @@ def _empty_acc() -> dict:
         "oneStar": 0, "twoStar": 0, "threeStar": 0,
         "unitItemHolders": {}, "augmentCounts": {}, "topBoards": [],
         "placementSeq": [], "cursorTs": None,
+        # NEW: Track 3-item builds per unit (like tactics.tools)
+        # Structure: { "unit_api_name": { "item1|item2|item3": {"games": N, "totalPl": M} } }
+        "unitItemBuilds": {},
     }
 
 
@@ -2078,6 +2120,18 @@ def _accumulate(acc: dict, participant: dict, catalog: dict, match_ts_s: int) ->
             acc["itemTotalPl"][iname] = acc["itemTotalPl"].get(iname, 0) + pl
             holder = acc["unitItemHolders"].setdefault(cid, {})
             holder[iname] = holder.get(iname, 0) + 1
+        
+        # NEW: Track 3-item builds per unit (tactics.tools style)
+        # Only track if unit has 2-3 completed items (meaningful build)
+        if 2 <= len(unit_items) <= 3:
+            # Sort items alphabetically so "A|B|C" == "C|B|A" 
+            build_key = "|".join(sorted(unit_items))
+            builds = acc["unitItemBuilds"].setdefault(cid, {})
+            build_entry = builds.setdefault(build_key, {"games": 0, "totalPl": 0, "wins": 0})
+            build_entry["games"] += 1
+            build_entry["totalPl"] += pl
+            if pl == 1:
+                build_entry["wins"] += 1
 
     board_augs = [str(a) for a in participant.get("augments", []) if a]
     tb = acc["topBoards"]
@@ -2168,6 +2222,39 @@ def _derive_insights(acc: dict, catalog: dict) -> dict:
             })
     item_holders.sort(key=lambda x: -x["games"])
 
+    # NEW: Best item builds per unit (tactics.tools style tier list)
+    # Structure: [ { unitName, unitIconUrl, builds: [ {items: [...], games, avgPl, winRate} ] } ]
+    best_builds_by_unit = []
+    for unit_api, builds_map in acc.get("unitItemBuilds", {}).items():
+        if not builds_map:
+            continue
+        unit_builds = []
+        for build_key, stats in builds_map.items():
+            if stats["games"] < 2:  # Skip builds with too few games
+                continue
+            item_apis = build_key.split("|")
+            items_list = [
+                {"name": _map_name(catalog["items"], iapi), "iconUrl": _map_icon(catalog["items"], iapi)}
+                for iapi in item_apis
+            ]
+            unit_builds.append({
+                "items": items_list,
+                "games": stats["games"],
+                "avgPlacement": stats["totalPl"] / stats["games"],
+                "winRate": stats["wins"] / stats["games"] if stats["games"] > 0 else 0,
+            })
+        if unit_builds:
+            # Sort by games played (most popular), then by avg placement (best performing)
+            unit_builds.sort(key=lambda x: (-x["games"], x["avgPlacement"]))
+            best_builds_by_unit.append({
+                "unitName": _map_name(catalog["units"], unit_api),
+                "unitIconUrl": _map_icon(catalog["units"], unit_api),
+                "unitCost": (catalog["units"].get(unit_api) or {}).get("cost"),
+                "builds": unit_builds[:5],  # Top 5 builds per unit
+            })
+    # Sort units by total games across all builds
+    best_builds_by_unit.sort(key=lambda x: -sum(b["games"] for b in x["builds"]))
+
     seq = acc["placementSeq"]
     longest_top4 = longest_win = current_top4 = current_win = 0
     run_t4 = run_w = 0
@@ -2223,6 +2310,7 @@ def _derive_insights(acc: dict, catalog: dict) -> dict:
             for k, v in acc["augmentCounts"].items()
         ], key=lambda x: -x["games"])[:5],
         "itemHolders": item_holders[:5],
+        "bestBuilds": best_builds_by_unit[:20],  # Top 20 units with best builds (tactics.tools style)
         "traitsByPlacement": sorted([
             {"name": _map_name(catalog["traits"], k),
              "games": acc["traitCounts"][k],
