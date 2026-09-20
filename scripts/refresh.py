@@ -1053,6 +1053,43 @@ def _match_tft_comp(arch: dict) -> Optional[dict]:
     return None
 
 
+def _comp_primary_carry(match: dict) -> str:
+    """Norm-key of a TFT comp's primary carry: its first listed carry, else its
+    ``mainChampion``. Used to gate whether the comp's NAME may be applied."""
+    carries = match.get("carries") or []
+    if carries:
+        return _norm_key(carries[0] or "")
+    return _norm_key(match.get("mainChampion") or "")
+
+
+def _arch_contains_unit(arch: dict, unit_norm: str) -> bool:
+    """True if the archetype's core/flex units include ``unit_norm``."""
+    if not unit_norm:
+        return False
+    for u in (arch.get("coreUnits") or []) + (arch.get("flexUnits") or []):
+        if _norm_key(u.get("name") or "") == unit_norm:
+            return True
+    return False
+
+
+def _apply_meta_name(arch: dict, match: Optional[dict], used_names: set) -> None:
+    """Apply the matched comp's board NAME to ``arch`` — but only if the archetype
+    actually fields that comp's PRIMARY carry, and no other archetype already
+    claimed the name. A high support-unit overlap alone must NOT rename a board
+    (e.g. a carry-less Vanguard/Riftbeast board mislabelled "Draven Fast 9");
+    such boards fall back to the carry+category name (metaName left unset)."""
+    name = (match or {}).get("name")
+    if not name:
+        arch.pop("metaName", None)
+        return
+    pc = _comp_primary_carry(match)
+    if pc and _arch_contains_unit(arch, pc) and name not in used_names:
+        arch["metaName"] = name
+        used_names.add(name)
+    else:
+        arch.pop("metaName", None)
+
+
 def _join_names(names: list) -> str:
     """Human-readable ' A, B, and C' join."""
     names = [n for n in names if n]
@@ -2335,6 +2372,7 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
                 unit_to_clusters.setdefault(u, set()).add(j)
 
     results = []
+    used_meta_names: set = set()  # dedupe meta board names across archetypes
     for indices in cluster_members:
         if len(indices) < min_size:
             continue
@@ -2439,8 +2477,9 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
             match = _match_tft_comp(arch) if with_opener else None
             pos_overrides: dict = {}
             if match:
-                if match.get("name"):
-                    arch["metaName"] = match["name"]
+                # Name only if the arch fields this comp's primary carry (guards
+                # against mislabelling a carry-less board), deduped across archs.
+                _apply_meta_name(arch, match, used_meta_names)
                 board_items = {}
                 for ch in match.get("characters") or []:
                     nm, r, c = ch.get("name"), ch.get("row"), ch.get("col")
