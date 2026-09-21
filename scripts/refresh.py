@@ -1140,7 +1140,7 @@ def _assign_meta_names(archs: list, catalog: dict | None = None) -> None:
     # (TFTA ``mainChampion``) MUST be on our board, and a comp whose headline
     # carry equals our Main carry gets a bonus so a carry's own title wins for
     # that carry's board (e.g. Elder Dragon board → "Elder Dragon Fast 9").
-    pairs = []  # (score, jac, arch_idx, title)
+    pairs = []  # (score, jac, arch_idx, title, main_normkey)
     for idx, a in enumerate(archs):
         au = _arch_unit_norms(a)
         carry0 = _norm_key(a.get("carryName") or "")
@@ -1152,7 +1152,7 @@ def _assign_meta_names(archs: list, catalog: dict | None = None) -> None:
             if jac < _META_NAME_MIN_JACCARD or shared < _META_NAME_MIN_SHARED:
                 continue
             score = jac + (0.25 if tc["main"] == carry0 else 0.0)
-            pairs.append((score, jac, idx, tc["title"]))
+            pairs.append((score, jac, idx, tc["title"], tc["main"]))
 
     # Global max-weight greedy: assign the strongest pairing first, so each
     # distinct TFTA line lands on the archetype it fits best and two boards
@@ -1160,15 +1160,51 @@ def _assign_meta_names(archs: list, catalog: dict | None = None) -> None:
     pairs.sort(key=lambda x: (-x[0], -x[1], x[3]))
     assigned: set = set()
     used_titles: set = set()
-    for score, jac, idx, title in pairs:
+    for score, jac, idx, title, main_k in pairs:
         if idx in assigned or title in used_titles:
             continue
         archs[idx]["metaName"] = title
+        # Align the Main carry with the TFTA title: promote the matched comp's
+        # headline carry (mainChampion) to carries[0]/carryName so the badge
+        # matches the name (e.g. "Elder Dragon Fast 9" → Main = Elder Dragon).
+        _promote_main_carry(archs[idx], main_k)
         assigned.add(idx)
         used_titles.add(title)
     for idx, a in enumerate(archs):
         if idx not in assigned:
             a.pop("metaName", None)
+
+
+def _promote_main_carry(arch: dict, main_k: str) -> None:
+    """Make the TFTA comp's headline carry the archetype's PRIMARY carry: resolve
+    ``main_k`` to our display name from the board's units and move it to the
+    front of ``carries`` (carries[0]) + set ``carryName``, keeping the existing
+    carries as secondaries (deduped, primary first). No-op if the unit isn't on
+    our board (so we never name a Main carry that isn't present)."""
+    disp = None
+    for u in arch.get("coreUnits") or []:
+        if _norm_key(u.get("name") or "") == main_k:
+            disp = u.get("name")
+            break
+    if not disp:
+        for u in arch.get("flexUnits") or []:
+            if _norm_key(u.get("name") or "") == main_k:
+                disp = u.get("name")
+                break
+    if not disp:
+        return
+    ordered = [disp]
+    seen = {main_k}
+    prior = list(arch.get("carries") or [])
+    if not prior and arch.get("carryName"):
+        prior = [arch["carryName"]]
+    for c in prior:
+        ck = _norm_key(c or "")
+        if ck and ck not in seen:
+            seen.add(ck)
+            ordered.append(c)
+    arch["carries"] = ordered
+    arch["carryName"] = disp
 
 
 def _join_names(names: list) -> str:
