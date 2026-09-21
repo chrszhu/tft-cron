@@ -3065,7 +3065,15 @@ def _compute_item_builds(insight_rows: list, set_number: int, player_count: int,
                     items.append(iname)
                     if isinstance(it, dict) and it.get("iconUrl") and iname not in item_icons:
                         item_icons[iname] = it.get("iconUrl")
-                if len(items) < 2 or len(items) > 3:
+                # Thief's Gloves generates 2 RANDOM items each round, so Riot's
+                # API reports the unit as a 3-item board (Gloves + 2 RNG picks).
+                # Those extras are noise, not a chosen build — collapse the board
+                # to the single-item Thief's Gloves build so the games count sums
+                # honestly instead of splintering into dozens of tiny combos.
+                tg = next((n for n in items if re.search(r"thie[fv]", _norm_key(n))), None)
+                if tg:
+                    items = [tg]
+                elif len(items) < 2 or len(items) > 3:
                     continue
                 key = "|".join(sorted(items))
                 b = builds.setdefault(name, {}).setdefault(
