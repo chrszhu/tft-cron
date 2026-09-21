@@ -36,15 +36,18 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 """
 Standalone TFT challenger refresh script.
-No Django. No Render. Just psycopg2 + requests.
+No Django. No Render. No CockroachDB. Just DuckDB (a local file) + requests.
 
 Usage:
     python scripts/refresh.py [--region na1] [--tier challenger]
 
-Reads DATABASE_URL and RIOT_API_KEY from .env.local (project root) or environment.
+Reads RIOT_API_KEY from .env.local (project root) or environment. Storage is a
+local DuckDB file at $DUCKDB_PATH (default: <repo>/data/tft.duckdb) — seed it
+once from scripts/_dbexport via scripts/seed_duckdb.py, and the cron commits the
+updated file back to the repo so state persists between runs.
 
 Requirements:
-    pip install psycopg2-binary requests python-dotenv
+    pip install duckdb requests python-dotenv
 """
 
 import argparse
@@ -69,8 +72,7 @@ for _env_file in [".env.local", ".env"]:
         print(f"[refresh] Loaded env from {_path}")
         break
 
-import psycopg2
-import psycopg2.extras
+import duckdb
 
 logging.basicConfig(level=logging.WARNING)
 
@@ -113,119 +115,187 @@ PLATFORM_ROUTING = {
     "ph2": "sea", "sg2": "sea", "th2": "sea", "tw2": "sea", "vn2": "sea",
 }
 
-# ── DB connection ─────────────────────────────────────────────────────────────
+# ── DB connection (DuckDB, local file) ────────────────────────────────────────
+#
+# Migrated off CockroachDB/psycopg2. Storage is now a single local DuckDB file
+# (env DUCKDB_PATH, default <repo>/data/tft.duckdb). It's a file, so there's no
+# connection URL, no health check, and no per-request RU cost. The cron commits
+# the updated file back to the repo so accumulated state persists between runs.
+#
+# JSON columns (insights/payload/board) are stored as VARCHAR holding
+# json.dumps(...) for portability; the query adapter json.loads() them on read
+# so existing call sites still get dicts/lists.
 _conn = None
 
+# Columns that hold json.dumps'd JSON as VARCHAR — parsed back to Python on read.
+_JSON_COLUMNS = {"insights", "payload", "board", "boards"}
+
+
 def _get_conn():
+    """Return the module-level DuckDB connection, opening it (and its parent
+    directory) on first use. Single connection, reused across all calls."""
     global _conn
-    raw_url = os.environ.get("DATABASE_URL", "")
-    if not raw_url:
-        raise RuntimeError("DATABASE_URL is not set")
-    # Strip channel_binding param — not supported by all pg versions
-    db_url = re.sub(r"[&?]channel_binding=[^&]*", "", raw_url)
-    try:
-        if _conn is None or _conn.closed:
-            raise Exception("reconnect")
-        _conn.cursor().execute("SELECT 1")
-    except Exception:
-        try:
-            if _conn and not _conn.closed:
-                _conn.close()
-        except Exception:
-            pass
-        _conn = psycopg2.connect(db_url)
-        _conn.autocommit = False
+    if _conn is None:
+        path = os.environ.get("DUCKDB_PATH") or str(
+            Path(__file__).resolve().parent.parent / "data" / "tft.duckdb"
+        )
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        _conn = duckdb.connect(path)
     return _conn
 
 
+def _rows_to_dicts(cur) -> list:
+    """Turn a DuckDB cursor's tuple rows into RealDictCursor-style dicts keyed by
+    column name, json.loads()'ing any JSON-typed VARCHAR columns."""
+    desc = cur.description or []
+    cols = [d[0] for d in desc]
+    out = []
+    for tup in cur.fetchall():
+        row = dict(zip(cols, tup))
+        for k in cols:
+            if k in _JSON_COLUMNS and isinstance(row.get(k), str):
+                try:
+                    row[k] = json.loads(row[k])
+                except (ValueError, TypeError):
+                    pass
+        out.append(row)
+    return out
+
+
 def _execute(sql, params=None, fetch=None):
+    """psycopg2-compatible query helper for DuckDB. Translates %s placeholders to
+    DuckDB's ?, returns rows as column-keyed dicts, and swallows/reports errors
+    like the old helper did (returns None). DuckDB autocommits each statement."""
     conn = _get_conn()
+    duck_sql = sql.replace("%s", "?")
     try:
-        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(sql, params or [])
-            conn.commit()
-            if fetch == "all":
-                return cur.fetchall()
-            if fetch == "one":
-                return cur.fetchone()
+        cur = conn.execute(duck_sql, list(params or []))
+        if fetch == "all":
+            return _rows_to_dicts(cur)
+        if fetch == "one":
+            rows = _rows_to_dicts(cur)
+            return rows[0] if rows else None
     except Exception as exc:
-        conn.rollback()
         print(f"[db] SQL error: {exc}")
     return None
 
 
-def _ensure_schema():
+def _bulk_upsert(table: str, columns: list, rows: list,
+                 conflict_cols: list, update_cols=None, chunk: int = 500):
+    """Batched multi-row INSERT ... ON CONFLICT for DuckDB (replaces psycopg2's
+    execute_values). ``update_cols=None`` → DO NOTHING; otherwise DO UPDATE SET
+    col=excluded.col for each named column. Rows must be de-duplicated on the
+    conflict key by the caller (DuckDB rejects updating the same row twice in one
+    statement); every call site already keys rows by PK."""
+    if not rows:
+        return
     conn = _get_conn()
-    with conn.cursor() as cur:
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS ladder_meta (
-                platform TEXT NOT NULL, tier TEXT NOT NULL,
-                fetched_at BIGINT, total_entries INT,
-                PRIMARY KEY (platform, tier)
-            )
-        """)
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS challenger_players (
-                platform TEXT NOT NULL, tier TEXT NOT NULL, puuid TEXT NOT NULL,
-                league_points INT NOT NULL DEFAULT 0, summoner_id TEXT, summoner_name TEXT,
-                wins INT DEFAULT 0, losses INT DEFAULT 0, rank_val TEXT,
-                inactive BOOLEAN DEFAULT FALSE, fresh_blood BOOLEAN DEFAULT FALSE,
-                hot_streak BOOLEAN DEFAULT FALSE, ladder_position INT DEFAULT 0,
-                ladder_fetched_at BIGINT, insights JSONB, insights_error TEXT,
-                insights_fetched_at BIGINT, profile_icon_id INT,
-                insights_cursor BIGINT, set_number INT NOT NULL DEFAULT 0,
-                PRIMARY KEY (platform, tier, puuid)
-            )
-        """)
-        for ddl in [
-            "ALTER TABLE challenger_players ADD COLUMN IF NOT EXISTS profile_icon_id INT",
-            "ALTER TABLE challenger_players ADD COLUMN IF NOT EXISTS insights_cursor BIGINT",
-            "ALTER TABLE challenger_players ADD COLUMN IF NOT EXISTS set_number INT NOT NULL DEFAULT 0",
-            "ALTER TABLE ladder_meta ADD COLUMN IF NOT EXISTS set_number INT NOT NULL DEFAULT 0",
-            "CREATE INDEX IF NOT EXISTS idx_challengers_lp ON challenger_players (platform, tier, league_points DESC)",
-            """CREATE TABLE IF NOT EXISTS meta_cache (
-                cache_key TEXT PRIMARY KEY, payload JSONB NOT NULL, computed_at BIGINT NOT NULL
-            )""",
-            # Stores backfilled insights for historical sets (PK includes set_number so
-            # one player can have rows for multiple sets without conflicting with
-            # challenger_players, whose PK is (platform, tier, puuid)).
-            """CREATE TABLE IF NOT EXISTS historical_insights (
-                platform     TEXT    NOT NULL,
-                tier         TEXT    NOT NULL,
-                puuid        TEXT    NOT NULL,
-                set_number   INT     NOT NULL,
-                summoner_name TEXT,
-                insights     JSONB,
-                computed_at  BIGINT  NOT NULL,
-                PRIMARY KEY (platform, tier, puuid, set_number)
-            )""",
-            # Reads filter by (platform, tier, set_number) WITHOUT puuid, so the
-            # PK can't serve them and every read full-scans the table (tens of
-            # MiB, growing with the data → the "exponential" RU curve). This
-            # secondary index turns those into cheap range scans.
-            "CREATE INDEX IF NOT EXISTS idx_hist_set ON historical_insights (platform, tier, set_number)",
-            # Same rationale for the current-set boards read on challenger_players.
-            "CREATE INDEX IF NOT EXISTS idx_challengers_set ON challenger_players (platform, tier, set_number)",
-            # Per-archetype full board list for on-demand "load more" paging.
-            # One row per board; PK prefix (…, arch_id) makes offset/limit an
-            # indexed range scan (cheap RU) instead of a JSONB scan.
-            """CREATE TABLE IF NOT EXISTS archetype_boards (
-                platform    TEXT NOT NULL,
-                tier        TEXT NOT NULL,
-                set_number  INT  NOT NULL,
-                arch_id     TEXT NOT NULL,
-                board_idx   INT  NOT NULL,
-                placement   INT,
-                board       JSONB NOT NULL,
-                PRIMARY KEY (platform, tier, set_number, arch_id, board_idx)
-            )""",
-        ]:
+    col_sql = ", ".join(columns)
+    row_ph = "(" + ", ".join(["?"] * len(columns)) + ")"
+    conflict = ", ".join(conflict_cols)
+    if update_cols:
+        set_sql = ", ".join(f"{c}=excluded.{c}" for c in update_cols)
+        action = f"DO UPDATE SET {set_sql}"
+    else:
+        action = "DO NOTHING"
+    for i in range(0, len(rows), chunk):
+        batch = rows[i:i + chunk]
+        values_sql = ", ".join([row_ph] * len(batch))
+        flat = [v for r in batch for v in r]
+        conn.execute(
+            f"INSERT INTO {table} ({col_sql}) VALUES {values_sql} "
+            f"ON CONFLICT ({conflict}) {action}",
+            flat,
+        )
+
+
+def _ensure_schema():
+    """Create the 5 tables in DuckDB if absent, mirroring the old CockroachDB PKs.
+    Type map: TEXT→VARCHAR, INT→INTEGER, INT8→BIGINT, JSONB→VARCHAR (json text)."""
+    conn = _get_conn()
+    ddls = [
+        """CREATE TABLE IF NOT EXISTS ladder_meta (
+            platform VARCHAR NOT NULL, tier VARCHAR NOT NULL,
+            fetched_at BIGINT, total_entries INTEGER,
+            set_number INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (platform, tier)
+        )""",
+        """CREATE TABLE IF NOT EXISTS challenger_players (
+            platform VARCHAR NOT NULL, tier VARCHAR NOT NULL, puuid VARCHAR NOT NULL,
+            league_points INTEGER NOT NULL DEFAULT 0, summoner_id VARCHAR, summoner_name VARCHAR,
+            wins INTEGER DEFAULT 0, losses INTEGER DEFAULT 0, rank_val VARCHAR,
+            inactive BOOLEAN DEFAULT FALSE, fresh_blood BOOLEAN DEFAULT FALSE,
+            hot_streak BOOLEAN DEFAULT FALSE, ladder_position INTEGER DEFAULT 0,
+            ladder_fetched_at BIGINT, insights VARCHAR, insights_error VARCHAR,
+            insights_fetched_at BIGINT, profile_icon_id INTEGER,
+            insights_cursor BIGINT, set_number INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (platform, tier, puuid)
+        )""",
+        """CREATE TABLE IF NOT EXISTS meta_cache (
+            cache_key VARCHAR PRIMARY KEY, payload VARCHAR NOT NULL, computed_at BIGINT NOT NULL
+        )""",
+        # Backfilled insights for historical sets (PK includes set_number so one
+        # player can have rows for multiple sets).
+        """CREATE TABLE IF NOT EXISTS historical_insights (
+            platform      VARCHAR NOT NULL,
+            tier          VARCHAR NOT NULL,
+            puuid         VARCHAR NOT NULL,
+            set_number    INTEGER NOT NULL,
+            summoner_name VARCHAR,
+            insights      VARCHAR,
+            computed_at   BIGINT  NOT NULL,
+            PRIMARY KEY (platform, tier, puuid, set_number)
+        )""",
+        # Per-archetype full board list for on-demand "load more" paging.
+        """CREATE TABLE IF NOT EXISTS archetype_boards (
+            platform    VARCHAR NOT NULL,
+            tier        VARCHAR NOT NULL,
+            set_number  INTEGER NOT NULL,
+            arch_id     VARCHAR NOT NULL,
+            board_idx   INTEGER NOT NULL,
+            placement   INTEGER,
+            board       VARCHAR NOT NULL,
+            PRIMARY KEY (platform, tier, set_number, arch_id, board_idx)
+        )""",
+    ]
+    for ddl in ddls:
+        try:
+            conn.execute(ddl)
+        except Exception as exc:
+            print(f"[db] schema warning: {exc}")
+    print("[db] Schema ready (DuckDB)")
+
+
+def _available_sets(platform: str, tier: str) -> list:
+    """Distinct TFT set numbers we have data for, unioned across the live ladder,
+    the historical backfill table, AND meta_cache archetype keys.
+
+    The meta_cache source matters for the DuckDB migration: the cron's committed
+    DuckDB carries archetype caches for historical sets (12–17) but NOT their
+    bulky historical_insights rows (excluded to keep the file well under GitHub's
+    100 MB limit). Deriving from meta_cache keeps the historical set tabs alive
+    even when historical_insights is empty."""
+    sets: set = set()
+    for tbl in ("challenger_players", "historical_insights"):
+        rows = _execute(
+            f"SELECT DISTINCT set_number FROM {tbl} WHERE platform=%s AND tier=%s",
+            [platform, tier], fetch="all",
+        ) or []
+        for r in rows:
             try:
-                cur.execute(ddl)
-            except Exception:
-                conn.rollback()
-    conn.commit()
-    print("[db] Schema ready")
+                sets.add(int(r.get("set_number") or 0))
+            except (TypeError, ValueError):
+                pass
+    prefix = f"archetypes:{platform}:{tier}:"
+    krows = _execute(
+        "SELECT cache_key FROM meta_cache WHERE cache_key LIKE %s", [prefix + "%"], fetch="all",
+    ) or []
+    for r in krows:
+        tail = (r.get("cache_key") or "").split(":")[-1]
+        if tail.isdigit():
+            sets.add(int(tail))
+    sets.discard(0)
+    return sorted(sets)
 
 
 # ── CDragon catalog ───────────────────────────────────────────────────────────
@@ -2813,8 +2883,6 @@ def _store_archetype_boards(platform: str, tier: str, set_num: int, archetypes: 
     Replace the full per-archetype board list for a set in archetype_boards.
     Wipes the set first so archetypes removed between runs don't leave stragglers.
     """
-    from psycopg2.extras import execute_values
-
     all_rows = []
     seen_keys: set = set()
     for arch in archetypes:
@@ -2833,23 +2901,20 @@ def _store_archetype_boards(platform: str, tier: str, set_num: int, archetypes: 
                              b.get("placement"), json.dumps(b)))
 
     conn = _get_conn()
-    with conn.cursor() as cur:
-        cur.execute(
-            "DELETE FROM archetype_boards WHERE platform=%s AND tier=%s AND set_number=%s",
-            [platform, tier, set_num],
-        )
-        # Batched multi-row inserts — one round-trip per chunk (vs. per row).
-        # ON CONFLICT DO NOTHING is a belt-and-suspenders guard against any
-        # residual key collision so the run can't crash on a duplicate.
-        for i in range(0, len(all_rows), 500):
-            execute_values(
-                cur,
-                "INSERT INTO archetype_boards "
-                "(platform, tier, set_number, arch_id, board_idx, placement, board) VALUES %s "
-                "ON CONFLICT (platform, tier, set_number, arch_id, board_idx) DO NOTHING",
-                all_rows[i:i + 500],
-            )
-    conn.commit()
+    conn.execute(
+        "DELETE FROM archetype_boards WHERE platform=? AND tier=? AND set_number=?",
+        [platform, tier, set_num],
+    )
+    # Batched multi-row inserts — one round-trip per chunk (vs. per row).
+    # ON CONFLICT DO NOTHING is a belt-and-suspenders guard against any
+    # residual key collision so the run can't crash on a duplicate.
+    _bulk_upsert(
+        "archetype_boards",
+        ["platform", "tier", "set_number", "arch_id", "board_idx", "placement", "board"],
+        all_rows,
+        conflict_cols=["platform", "tier", "set_number", "arch_id", "board_idx"],
+        update_cols=None,  # DO NOTHING
+    )
     print(f"[archetypes] Stored {len(all_rows)} boards for on-demand paging (set {set_num})")
 
 
@@ -2896,24 +2961,25 @@ def _cache_archetypes(platform: str, tier: str, active_set: int, target_set: int
     now = int(time.time() * 1000)
     patch_start = int(time.time()) - PATCH_WINDOW_DAYS * 86400
 
+    # insights is stored as json-text VARCHAR, so we can't use SQL JSON operators
+    # (insights->'topBoards'); select the raw column and extract in Python.
     if is_historical:
         rows = _execute(
-            "SELECT COALESCE(insights->'topBoards', insights->'winBoards') AS boards "
-            "FROM historical_insights "
+            "SELECT insights FROM historical_insights "
             "WHERE platform=%s AND tier=%s AND insights IS NOT NULL AND set_number=%s",
             [platform, tier, set_num], fetch="all",
         )
     else:
         rows = _execute(
-            "SELECT COALESCE(insights->'topBoards', insights->'winBoards') AS boards "
-            "FROM challenger_players "
+            "SELECT insights FROM challenger_players "
             "WHERE platform=%s AND tier=%s AND insights IS NOT NULL AND set_number=%s",
             [platform, tier, active_set], fetch="all",
         )
     all_boards: list = []
     player_count = 0
     for row in (rows or []):
-        b = row["boards"] or []
+        ins = row.get("insights") or {}
+        b = (ins.get("topBoards") or ins.get("winBoards") or []) if isinstance(ins, dict) else []
         if b:
             player_count += 1
             all_boards.extend(b)
@@ -2969,20 +3035,18 @@ def _export_static_snapshot(platform: str, tier: str, active_set: int):
 
     print(f"\n[snapshot] Building static snapshot for {tier}@{platform} set {active_set}…")
 
-    # ── 1. Ladder page 1 (from DB, with insights already written) ─────────────
-    page1_rows = _execute(
+    # ── 1. FULL ladder (from DB, with insights already written) ───────────────
+    # Persist the entire ladder (not just page 1) so the static-snapshot-backed
+    # leaderboard can paginate past page ~2. The web route slices these entries
+    # by the requested page/pageSize; meta keeps the same shape.
+    ladder_rows = _execute(
         "SELECT * FROM challenger_players "
         "WHERE platform=%s AND tier=%s AND set_number=%s "
-        "ORDER BY league_points DESC LIMIT %s",
-        [platform, tier, active_set, PAGE_SIZE], fetch="all",
+        "ORDER BY league_points DESC",
+        [platform, tier, active_set], fetch="all",
     ) or []
 
-    total_row = _execute(
-        "SELECT COUNT(*) AS cnt FROM challenger_players "
-        "WHERE platform=%s AND tier=%s AND set_number=%s",
-        [platform, tier, active_set], fetch="one",
-    )
-    total = int((total_row or {}).get("cnt", 0))
+    total = len(ladder_rows)
 
     def _row_to_entry(r: dict) -> dict:
         """Convert a DB row (snake_case) to the API response format (camelCase)."""
@@ -3020,7 +3084,7 @@ def _export_static_snapshot(platform: str, tier: str, active_set: int):
             "ladderSource": "cache",
             "activeSet": active_set,
         },
-        "entries": [_row_to_entry(r) for r in page1_rows],
+        "entries": [_row_to_entry(r) for r in ladder_rows],
     }
 
     # ── 2. Global summary (aggregate topItems/topUnits/topTraits) ─────────────
@@ -3137,17 +3201,11 @@ def _export_static_snapshot(platform: str, tier: str, active_set: int):
     )
 
     # ── 5. Available sets ──────────────────────────────────────────────────────
-    # Must include historical_insights, otherwise the UI can't know which
-    # backfilled sets exist and leaves their tabs disabled.
-    sets_rows = _execute(
-        "SELECT DISTINCT set_number FROM challenger_players WHERE platform=%s AND tier=%s "
-        "UNION "
-        "SELECT DISTINCT set_number FROM historical_insights WHERE platform=%s AND tier=%s "
-        "ORDER BY set_number",
-        [platform, tier, platform, tier], fetch="all",
-    ) or []
+    # Union of live ladder + historical backfill + meta_cache archetype keys, so
+    # historical tabs survive even when historical_insights is empty (see
+    # _available_sets).
     available_sets = {
-        "sets": [int(r.get("set_number", 0)) for r in sets_rows],
+        "sets": _available_sets(platform, tier),
         "activeSet": active_set,
     }
 
@@ -3200,20 +3258,16 @@ def _export_historical_snapshot(platform: str, tier: str, active_set: int, targe
 
     print(f"\n[snapshot] Building historical snapshot for set {target_set}…")
 
-    # ── 1. Ladder page 1 from historical_insights ─────────────────────────────
-    page1_rows = _execute(
+    # ── 1. FULL ladder from historical_insights ───────────────────────────────
+    # Full ladder (not just page 1) so snapshot-backed pagination works.
+    ladder_rows = _execute(
         "SELECT * FROM historical_insights "
         "WHERE platform=%s AND tier=%s AND set_number=%s "
-        "ORDER BY summoner_name ASC LIMIT %s",
-        [platform, tier, target_set, PAGE_SIZE], fetch="all",
+        "ORDER BY summoner_name ASC",
+        [platform, tier, target_set], fetch="all",
     ) or []
 
-    total_row = _execute(
-        "SELECT COUNT(*) AS cnt FROM historical_insights "
-        "WHERE platform=%s AND tier=%s AND set_number=%s",
-        [platform, tier, target_set], fetch="one",
-    )
-    total = int((total_row or {}).get("cnt", 0))
+    total = len(ladder_rows)
 
     def _hist_row_to_entry(r: dict) -> dict:
         ins = r.get("insights")
@@ -3249,7 +3303,7 @@ def _export_historical_snapshot(platform: str, tier: str, active_set: int, targe
             "ladderSource": "cache",
             "activeSet": active_set,
         },
-        "entries": [_hist_row_to_entry(r) for r in page1_rows],
+        "entries": [_hist_row_to_entry(r) for r in ladder_rows],
     }
 
     # ── 2. Global summary from historical_insights ────────────────────────────
@@ -3391,16 +3445,10 @@ def _promote_current(platform: str, tier: str, set_num: int):
     with open(per_set, "r", encoding="utf-8") as f:
         snap = json.load(f)
 
-    # Build the available-sets list (union of both tables) so the tab bar is complete.
-    sets_rows = _execute(
-        "SELECT DISTINCT set_number FROM challenger_players WHERE platform=%s AND tier=%s "
-        "UNION "
-        "SELECT DISTINCT set_number FROM historical_insights WHERE platform=%s AND tier=%s "
-        "ORDER BY set_number",
-        [platform, tier, platform, tier], fetch="all",
-    ) or []
+    # Build the available-sets list (union of tables + meta_cache) so the tab bar
+    # is complete even when historical_insights is empty (see _available_sets).
     available_sets = {
-        "sets": [int(r.get("set_number", 0)) for r in sets_rows],
+        "sets": _available_sets(platform, tier),
         "activeSet": set_num,
     }
 
@@ -3572,7 +3620,6 @@ def _backfill_set(platform: str, target_set: int, tier: str = "all"):
                     checkpoint. Only rows whose board count changed since the last
                     flush are written (avoids re-upserting the whole accumulator each
                     checkpoint — the main RU sink)."""
-                    from psycopg2.extras import execute_values
                     rows = []
                     for pid, a in acc_map.items():
                         mc = a["matchCount"]
@@ -3584,25 +3631,20 @@ def _backfill_set(platform: str, target_set: int, tier: str = "all"):
                         rows.append((platform, run_tier, pid, target_set,
                                      names.get(pid), json.dumps(ins), int(time.time() * 1000)))
                         flushed_state[pid] = mc
-                    conn = _get_conn()
-                    with conn.cursor() as cur:
-                        for i in range(0, len(rows), 500):
-                            execute_values(
-                                cur,
-                                "INSERT INTO historical_insights "
-                                "(platform, tier, puuid, set_number, summoner_name, insights, computed_at) "
-                                "VALUES %s ON CONFLICT (platform, tier, puuid, set_number) DO UPDATE SET "
-                                "insights = EXCLUDED.insights, computed_at = EXCLUDED.computed_at",
-                                rows[i:i + 500],
-                            )
-                        # Persist seed progress so a timeout resumes instead of restarting.
-                        cur.execute(
-                            "INSERT INTO meta_cache (cache_key, payload, computed_at) VALUES (%s,%s,%s) "
-                            "ON CONFLICT (cache_key) DO UPDATE SET payload=EXCLUDED.payload, "
-                            "computed_at=EXCLUDED.computed_at",
-                            [seed_key, json.dumps(sorted(processed_seeds)), int(time.time() * 1000)],
-                        )
-                    conn.commit()
+                    _bulk_upsert(
+                        "historical_insights",
+                        ["platform", "tier", "puuid", "set_number", "summoner_name", "insights", "computed_at"],
+                        rows,
+                        conflict_cols=["platform", "tier", "puuid", "set_number"],
+                        update_cols=["insights", "computed_at"],
+                    )
+                    # Persist seed progress so a timeout resumes instead of restarting.
+                    _execute(
+                        "INSERT INTO meta_cache (cache_key, payload, computed_at) VALUES (%s,%s,%s) "
+                        "ON CONFLICT (cache_key) DO UPDATE SET payload=EXCLUDED.payload, "
+                        "computed_at=EXCLUDED.computed_at",
+                        [seed_key, json.dumps(sorted(processed_seeds)), int(time.time() * 1000)],
+                    )
                     print(f"\n[backfill]   flushed {len(rows)} players "
                           f"({len(processed_seeds)} seeds done)")
                     return len(rows)
@@ -3805,7 +3847,6 @@ def _seed_current_set(platform: str, active_set: int, tier: str = "all"):
         dominant RU cost. Correctness is preserved: the final _flush after the
         crawl writes every player's final state.
         """
-        from psycopg2.extras import execute_values
         rows = []
         for ppid, a in accs.items():
             mc = a["matchCount"]
@@ -3819,18 +3860,13 @@ def _seed_current_set(platform: str, active_set: int, tier: str = "all"):
             flushed_state[ppid] = mc
         if not rows:
             return 0
-        conn = _get_conn()
-        with conn.cursor() as cur:
-            for i in range(0, len(rows), 500):
-                execute_values(
-                    cur,
-                    "INSERT INTO historical_insights "
-                    "(platform, tier, puuid, set_number, summoner_name, insights, computed_at) "
-                    "VALUES %s ON CONFLICT (platform, tier, puuid, set_number) DO UPDATE SET "
-                    "insights = EXCLUDED.insights, computed_at = EXCLUDED.computed_at",
-                    rows[i:i + 500],
-                )
-        conn.commit()
+        _bulk_upsert(
+            "historical_insights",
+            ["platform", "tier", "puuid", "set_number", "summoner_name", "insights", "computed_at"],
+            rows,
+            conflict_cols=["platform", "tier", "puuid", "set_number"],
+            update_cols=["insights", "computed_at"],
+        )
         return len(rows)
 
     while queue and _boards() < target_boards:
@@ -3964,48 +4000,44 @@ def _run_tier(platform: str, tier: str, ladder_only: bool):
     print(f"[refresh] Got {len(entries)} challengers")
 
     now_ms = int(time.time() * 1000)
-    conn = _get_conn()
-    with conn.cursor() as cur:
-        for entry in entries:
-            cur.execute("""
-                INSERT INTO challenger_players
-                    (platform, tier, puuid, league_points, summoner_id, summoner_name,
-                     wins, losses, rank_val, inactive, fresh_blood, hot_streak,
-                     ladder_position, ladder_fetched_at, set_number)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                ON CONFLICT (platform, tier, puuid) DO UPDATE SET
-                    league_points=EXCLUDED.league_points,
-                    summoner_id=EXCLUDED.summoner_id,
-                    summoner_name=EXCLUDED.summoner_name,
-                    wins=EXCLUDED.wins, losses=EXCLUDED.losses,
-                    rank_val=EXCLUDED.rank_val, inactive=EXCLUDED.inactive,
-                    fresh_blood=EXCLUDED.fresh_blood, hot_streak=EXCLUDED.hot_streak,
-                    ladder_position=EXCLUDED.ladder_position,
-                    ladder_fetched_at=EXCLUDED.ladder_fetched_at,
-                    set_number=EXCLUDED.set_number
-            """, (
-                platform, tier,
-                entry.get("puuid") or "",
-                int(entry.get("leaguePoints", 0)),
-                entry.get("summonerId") or "",
-                entry.get("summonerName") or "",
-                int(entry.get("wins", 0)),
-                int(entry.get("losses", 0)),
-                entry.get("rank", "I") or "I",
-                bool(entry.get("inactive", False)),
-                bool(entry.get("freshBlood", False)),
-                bool(entry.get("hotStreak", False)),
-                int(entry.get("ladderPosition", 0)),
-                now_ms,
-                active_set,
-            ))
-        cur.execute("""
-            INSERT INTO ladder_meta (platform, tier, fetched_at, total_entries, set_number)
-            VALUES (%s,%s,%s,%s,%s)
-            ON CONFLICT (platform, tier) DO UPDATE SET
-                fetched_at=EXCLUDED.fetched_at, total_entries=EXCLUDED.total_entries
-        """, [platform, tier, now_ms, len(entries), active_set])
-    conn.commit()
+    # De-dupe on puuid within this batch so DuckDB's ON CONFLICT DO UPDATE never
+    # tries to update the same target row twice in one statement.
+    ladder_rows = {}
+    for entry in entries:
+        puuid = entry.get("puuid") or ""
+        ladder_rows[(platform, tier, puuid)] = (
+            platform, tier, puuid,
+            int(entry.get("leaguePoints", 0)),
+            entry.get("summonerId") or "",
+            entry.get("summonerName") or "",
+            int(entry.get("wins", 0)),
+            int(entry.get("losses", 0)),
+            entry.get("rank", "I") or "I",
+            bool(entry.get("inactive", False)),
+            bool(entry.get("freshBlood", False)),
+            bool(entry.get("hotStreak", False)),
+            int(entry.get("ladderPosition", 0)),
+            now_ms,
+            active_set,
+        )
+    _bulk_upsert(
+        "challenger_players",
+        ["platform", "tier", "puuid", "league_points", "summoner_id", "summoner_name",
+         "wins", "losses", "rank_val", "inactive", "fresh_blood", "hot_streak",
+         "ladder_position", "ladder_fetched_at", "set_number"],
+        list(ladder_rows.values()),
+        conflict_cols=["platform", "tier", "puuid"],
+        update_cols=["league_points", "summoner_id", "summoner_name", "wins", "losses",
+                     "rank_val", "inactive", "fresh_blood", "hot_streak",
+                     "ladder_position", "ladder_fetched_at", "set_number"],
+    )
+    _execute(
+        "INSERT INTO ladder_meta (platform, tier, fetched_at, total_entries, set_number) "
+        "VALUES (%s,%s,%s,%s,%s) "
+        "ON CONFLICT (platform, tier) DO UPDATE SET "
+        "fetched_at=EXCLUDED.fetched_at, total_entries=EXCLUDED.total_entries",
+        [platform, tier, now_ms, len(entries), active_set],
+    )
     print(f"[refresh] Stored {len(entries)} challengers in DB")
 
     if ladder_only:

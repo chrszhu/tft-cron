@@ -21,10 +21,8 @@ on:
         default: ""
 
   schedule:
-    # Weekly refresh only (Sunday 08:00 UTC). Previously ran every 6 hours (4×/day),
-    # which — combined with re-upserting the whole accumulator each checkpoint —
-    # drove the bulk of DB RU usage. Weekly is plenty for a meta snapshot; use the
-    # manual "Run workflow" button for an on-demand refresh between runs.
+    # Weekly refresh only (Sunday 08:00 UTC). Weekly is plenty for a meta
+    # snapshot; use the manual "Run workflow" button for an on-demand refresh.
     - cron: "0 8 * * 0"
 
   repository_dispatch:
@@ -34,9 +32,15 @@ concurrency:
   group: tft-refresh
   cancel-in-progress: true
 
+# Needed so the seed job can commit the updated data/tft.duckdb back to THIS repo.
+permissions:
+  contents: write
+
 env:
   REGION: ${{ github.event.inputs.region || github.event.client_payload.region || 'na1' }}
   TIER:   ${{ github.event.inputs.tier   || github.event.client_payload.tier   || 'all' }}
+  # DuckDB is a local file committed to this repo (no CockroachDB / DATABASE_URL).
+  DUCKDB_PATH: ${{ github.workspace }}/data/tft.duckdb
   # Deep weekly run pulls far more; manual input overrides everything.
   TFT_TARGET_BOARDS: >-
     ${{ github.event.inputs.target_boards
@@ -57,10 +61,14 @@ jobs:
     outputs:
       key_expired: ${{ steps.run.outputs.key_expired }}
     steps:
+      # Full history so we can commit + push the updated DuckDB file back.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with: { python-version: "3.12", cache: "pip" }
       - run: pip install -r requirements.txt
+
       - name: Refresh TFT Academy meta comps (non-fatal)
         # Re-scrape the expert guidance dataset (positioning / stage tips /
         # difficulty / late cap / carousel / augments tip) so the baked snapshot
@@ -70,20 +78,78 @@ jobs:
         run: python3 scripts/scrape_tftacademy.py --set "${TFT_ACTIVE_SET:-18}"
         env:
           TFT_ACTIVE_SET: ${{ vars.TFT_ACTIVE_SET || '18' }}
+
       - name: Seed current set
         id: run
         env:
           RIOT_API_KEY:        ${{ secrets.RIOT_API_KEY }}
-          DATABASE_URL:        ${{ secrets.DATABASE_URL }}
           TFT_ACTIVE_SET:      ${{ vars.TFT_ACTIVE_SET || '18' }}
           TFT_TARGET_BOARDS:   ${{ env.TFT_TARGET_BOARDS }}
           TFT_SEED_PREV_LIMIT: ${{ env.TFT_SEED_PREV_LIMIT }}
         run: |
           echo "Target boards: $TFT_TARGET_BOARDS | high-elo seeds: $TFT_SEED_PREV_LIMIT"
+          echo "DuckDB: $DUCKDB_PATH"
           python3 scripts/refresh.py --region "$REGION" --tier "$TIER" --seed-current
           EXIT=$?
           [ $EXIT -eq 2 ] && echo "key_expired=true" >> "$GITHUB_OUTPUT"
           exit $EXIT
+
+      # ── Keep the live leaderboard fresh (LP + rank) ──────────────────────────
+      # The seed above builds the comp sample in historical_insights but does NOT
+      # populate the ranked ladder, so the leaderboard would have no LP/rank. Now
+      # that the set has a live challenger ladder, pull it into challenger_players
+      # (the table the leaderboard reads). Non-fatal so a hiccup never blocks the
+      # comp pipeline. Runs BEFORE the snapshot push so the pushed snapshot's full
+      # ladder carries LP/rank.
+      - name: Refresh live leaderboard (LP + rank)
+        if: always()
+        continue-on-error: true
+        env:
+          RIOT_API_KEY:   ${{ secrets.RIOT_API_KEY }}
+          TFT_ACTIVE_SET: ${{ vars.TFT_ACTIVE_SET || '18' }}
+        run: |
+          python3 scripts/refresh.py --region "$REGION" --tier challenger --ladder-only
+
+      - name: Backfill leaderboard names + insights from seed (DuckDB)
+        if: always()
+        continue-on-error: true
+        env:
+          TFT_ACTIVE_SET: ${{ vars.TFT_ACTIVE_SET || '18' }}
+        run: |
+          python3 -c '
+          import os, duckdb
+          aset = int(os.environ.get("TFT_ACTIVE_SET", "18"))
+          region = os.environ.get("REGION", "na1").lower()
+          con = duckdb.connect(os.environ["DUCKDB_PATH"])
+          con.execute(
+              "UPDATE challenger_players AS cp "
+              "SET summoner_name = COALESCE(NULLIF(btrim(hi.summoner_name), chr(39)||chr(39)), cp.summoner_name), "
+              "    insights = hi.insights "
+              "FROM historical_insights AS hi "
+              "WHERE cp.puuid = hi.puuid AND cp.platform = ? AND cp.tier = ? "
+              "  AND cp.set_number = ? AND hi.set_number = ? AND hi.insights IS NOT NULL",
+              [region, "challenger", aset, aset],
+          )
+          print("backfilled leaderboard rows from seed")
+          con.close()
+          '
+
+      # ── Re-export snapshots after the leaderboard backfill (full ladder) ──────
+      - name: Re-export snapshots (full ladder + leaderboard)
+        if: always()
+        continue-on-error: true
+        env:
+          TFT_ACTIVE_SET: ${{ vars.TFT_ACTIVE_SET || '18' }}
+        run: |
+          python3 -c '
+          import importlib.util, os
+          os.environ.setdefault("DUCKDB_PATH", os.path.join(os.getcwd(), "data", "tft.duckdb"))
+          spec = importlib.util.spec_from_file_location("refresh", "scripts/refresh.py")
+          r = importlib.util.module_from_spec(spec); spec.loader.exec_module(r)
+          aset = int(os.environ.get("TFT_ACTIVE_SET", "18"))
+          r._export_static_snapshot("na1", "challenger", aset)
+          '
+
       - name: Push snapshot to private app repo
         if: success()
         env:
@@ -124,30 +190,24 @@ jobs:
             git push && echo "Pushed — Vercel will redeploy."
           fi
 
-      # ── Keep the live leaderboard fresh (LP + rank) ──────────────────────────
-      # The seed above builds the comp sample in historical_insights but does NOT
-      # populate the ranked ladder, so the leaderboard would have no LP/rank. Now
-      # that the set has a live challenger ladder, pull it into challenger_players
-      # (the table the leaderboard API reads) and backfill each challenger's name
-      # + insights from the seed we just harvested. Both steps are non-fatal so a
-      # hiccup here never blocks the comp snapshot pipeline above.
-      - name: Refresh live leaderboard (LP + rank)
+      # ── Persist DuckDB state back to THIS repo (bounded via compaction) ───────
+      # Commits data/tft.duckdb so accumulated current-set state survives between
+      # weekly runs. compact_duckdb.py rewrites the file WITHOUT the transient
+      # historical_insights table so it stays ~40 MB (under GitHub's 100 MB limit,
+      # no LFS needed).
+      - name: Commit DuckDB state back to cron repo
         if: always()
-        continue-on-error: true
-        env:
-          RIOT_API_KEY:   ${{ secrets.RIOT_API_KEY }}
-          DATABASE_URL:   ${{ secrets.DATABASE_URL }}
-          TFT_ACTIVE_SET: ${{ vars.TFT_ACTIVE_SET || '18' }}
         run: |
-          python3 scripts/refresh.py --region "$REGION" --tier challenger --ladder-only
-      - name: Backfill leaderboard names + insights from seed
-        if: always()
-        continue-on-error: true
-        env:
-          DATABASE_URL:   ${{ secrets.DATABASE_URL }}
-          TFT_ACTIVE_SET: ${{ vars.TFT_ACTIVE_SET || '18' }}
-        run: |
-          python3 -c 'import os,re,psycopg2; url=re.sub(r"[&?]channel_binding=[^&]*","",os.environ["DATABASE_URL"]); aset=int(os.environ.get("TFT_ACTIVE_SET","18")); region=os.environ.get("REGION","na1").lower(); q="UPDATE challenger_players cp SET summoner_name=COALESCE(NULLIF(btrim(hi.summoner_name),"+chr(39)*2+"),cp.summoner_name), insights=hi.insights FROM historical_insights hi WHERE cp.puuid=hi.puuid AND cp.platform=%s AND cp.tier=%s AND cp.set_number=%s AND hi.set_number=%s AND hi.insights IS NOT NULL"; c=psycopg2.connect(url,sslmode="require"); cur=c.cursor(); cur.execute(q,(region,"challenger",aset,aset)); print("backfilled",cur.rowcount,"leaderboard rows"); c.commit(); c.close()'
+          python3 scripts/compact_duckdb.py || { echo "compaction failed"; exit 0; }
+          git config user.name  "tft-orchestrator[bot]"
+          git config user.email "tft-orchestrator[bot]@users.noreply.github.com"
+          git add data/tft.duckdb
+          if git diff --cached --quiet; then
+            echo "DuckDB unchanged — nothing to commit."
+          else
+            git commit -m "state: DuckDB after refresh ($(date -u '+%Y-%m-%d %H:%M UTC'))"
+            git push && echo "Committed updated DuckDB state."
+          fi
 
   # ── Notify on key expiry, retry on timeout ───────────────────────────────────
   finish:
@@ -169,10 +229,7 @@ jobs:
             -H "Priority: high" -H "Tags: key,warning" \
             -d "Your Riot API key has expired. Update RIOT_API_KEY in GitHub Secrets and re-run."
 
-      # Retry on failure, but CAPPED so a deterministic crash can't loop forever
-      # (it previously re-dispatched on every failure → endless retries). The
-      # attempt counter rides along in client_payload; we stop after MAX_ATTEMPTS
-      # and ping ntfy so a persistent failure surfaces instead of burning minutes.
+      # Retry on failure, but CAPPED so a deterministic crash can't loop forever.
       - name: Retry if failed (capped, not key expiry)
         if: |
           needs.seed-current.outputs.key_expired != 'true' &&
