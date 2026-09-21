@@ -3015,25 +3015,29 @@ def _cache_archetypes(platform: str, tier: str, active_set: int, target_set: int
 
 # ── Item-builds tier list (precomputed into the snapshot) ─────────────────────
 def _compute_item_builds(insight_rows: list, set_number: int, player_count: int,
-                         min_games: int = 2) -> dict:
+                         min_games: int = 5) -> dict:
     """Per-unit 2–3 item build tier list, computed from the FULL topBoards
-    dataset (every player's top finishes — far richer than the 20 per-comp
-    example boards the /builds page falls back to client-side).
+    dataset (every harvested player's top finishes — the same source the
+    archetypes use, ~7× the official-challenger sample).
 
-    Emits the exact shape the /builds page expects so it can be served straight
-    from the static snapshot with zero per-request compute:
+    Emits the shape the tactics.tools-style /builds table renders, served
+    straight from the static snapshot (zero per-request compute):
 
         { units: [ { unit, cost, iconUrl,
-                     builds: [ { items:[{name,iconUrl}], games, avgPlacement, winRate } ],
+                     games, avgPlacement, top4, winRate,   # unit-level (all its 2-3 item boards)
+                     builds: [ { items:[{name,iconUrl}],
+                                 games, avgPlacement, top4, winRate } ],
                      totalGames } ],
           totalBoards, playerCount, setNumber }
 
-    topBoard units already carry cost/iconUrl and their items carry name+iconUrl,
-    so no championExplorer cross-lookup is needed. winRate is the fraction of
-    boards where this exact combo placed 1st (frontend renders it as a %)."""
+    Stats: avgPlacement = mean finish; top4 = fraction placing ≤4; winRate =
+    fraction placing ==1. topBoard units carry cost/iconUrl and their items carry
+    name+iconUrl, so no championExplorer cross-lookup is needed. ``min_games``
+    drops fringe combos (raised for the larger harvested sample)."""
     unit_meta: dict = {}   # unit name → {cost, iconUrl}
     item_icons: dict = {}  # item name → iconUrl
-    builds: dict = {}      # unit name → { sorted-items-key → {games,totalPl,wins} }
+    builds: dict = {}      # unit name → { items-key → {games,totalPl,wins,top4} }
+    unit_tot: dict = {}    # unit name → {games,totalPl,wins,top4} over all its 2-3 item boards
     total_boards = 0
 
     for ins in insight_rows:
@@ -3041,6 +3045,8 @@ def _compute_item_builds(insight_rows: list, set_number: int, player_count: int,
             continue
         for board in (ins.get("topBoards") or ins.get("winBoards") or []):
             placement = board.get("placement") or 8
+            is_win = placement == 1
+            is_top4 = placement <= 4
             total_boards += 1
             for unit in board.get("units") or []:
                 name = unit.get("name")
@@ -3062,11 +3068,17 @@ def _compute_item_builds(insight_rows: list, set_number: int, player_count: int,
                 if len(items) < 2 or len(items) > 3:
                     continue
                 key = "|".join(sorted(items))
-                b = builds.setdefault(name, {}).setdefault(key, {"games": 0, "totalPl": 0, "wins": 0})
+                b = builds.setdefault(name, {}).setdefault(
+                    key, {"games": 0, "totalPl": 0, "wins": 0, "top4": 0})
                 b["games"] += 1
                 b["totalPl"] += placement
-                if placement == 1:
-                    b["wins"] += 1
+                b["wins"] += is_win
+                b["top4"] += is_top4
+                ut = unit_tot.setdefault(name, {"games": 0, "totalPl": 0, "wins": 0, "top4": 0})
+                ut["games"] += 1
+                ut["totalPl"] += placement
+                ut["wins"] += is_win
+                ut["top4"] += is_top4
 
     units_out = []
     for name, bmap in builds.items():
@@ -3079,19 +3091,27 @@ def _compute_item_builds(insight_rows: list, set_number: int, player_count: int,
                 "items": [{"name": n, "iconUrl": item_icons.get(n)} for n in key.split("|")],
                 "games": g,
                 "avgPlacement": round(s["totalPl"] / g, 2),
-                "winRate": round(s["wins"] / g, 2),
+                "top4": round(s["top4"] / g, 3),
+                "winRate": round(s["wins"] / g, 3),
             })
         if not blist:
             continue
         blist.sort(key=lambda b: (-b["games"], b["avgPlacement"]))
+        ut = unit_tot[name]
+        g = ut["games"]
         units_out.append({
             "unit": name,
             "cost": unit_meta[name]["cost"],
             "iconUrl": unit_meta[name]["iconUrl"],
-            "builds": blist[:5],
+            # Unit-level stats across every board where it ran a 2-3 item build.
+            "games": g,
+            "avgPlacement": round(ut["totalPl"] / g, 2),
+            "top4": round(ut["top4"] / g, 3),
+            "winRate": round(ut["wins"] / g, 3),
+            "builds": blist[:8],
             "totalGames": sum(b["games"] for b in blist),
         })
-    units_out.sort(key=lambda u: -u["totalGames"])
+    units_out.sort(key=lambda u: -u["games"])
 
     return {
         "units": units_out,
@@ -3310,6 +3330,25 @@ def _export_static_snapshot(platform: str, tier: str, active_set: int):
         json.dump(available_sets, f, separators=(",", ":"))
     print(f"[snapshot] Wrote sets_{platform}_{tier}.json → {available_sets['sets']}")
 
+    # ── 5b. Item-builds source: the FULL harvested set (historical_insights for
+    #        the active set), falling back to challenger insights if empty. ─────
+    ib_rows = _execute(
+        "SELECT insights FROM historical_insights "
+        "WHERE platform=%s AND tier=%s AND insights IS NOT NULL AND set_number=%s",
+        [platform, tier, active_set], fetch="all",
+    ) or []
+    item_build_insights = [r.get("insights") or {} for r in ib_rows]
+    item_build_player_count = sum(
+        1 for ins in item_build_insights
+        if isinstance(ins, dict) and (ins.get("topBoards") or ins.get("winBoards"))
+    )
+    if item_build_player_count == 0:
+        # Harvest empty — fall back to the challenger sample so /builds isn't blank.
+        item_build_insights = [row.get("insights") or {} for row in all_insights_rows]
+        item_build_player_count = gs_player_count
+    print(f"[snapshot] itemBuilds source: {item_build_player_count} players "
+          f"({'historical harvest' if ib_rows else 'challenger fallback'})")
+
     # ── 6. Assemble and write ──────────────────────────────────────────────────
     snapshot = {
         "generatedAt": int(time.time() * 1000),
@@ -3321,12 +3360,13 @@ def _export_static_snapshot(platform: str, tier: str, active_set: int):
         "winningBoards": winning_boards,
         "championExplorer": champion_explorer,
         "availableSets": available_sets,
-        # Precomputed per-unit item-builds tier list from the FULL topBoards
-        # dataset, so /builds is served straight from this static file (no DB,
-        # no per-request compute).
+        # Precomputed per-unit item-builds tier list. Source = the FULL harvested
+        # set in historical_insights (same rows the archetypes use — ~7× the
+        # official-challenger sample), NOT the ~192-player challenger_players
+        # table. Falls back to challenger insights only if the harvest is empty
+        # (e.g. a compacted cron DB that dropped historical_insights).
         "itemBuilds": _compute_item_builds(
-            [row.get("insights") or {} for row in all_insights_rows],
-            active_set, gs_player_count,
+            item_build_insights, active_set, item_build_player_count,
         ),
     }
 
