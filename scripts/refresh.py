@@ -3013,6 +3013,94 @@ def _cache_archetypes(platform: str, tier: str, active_set: int, target_set: int
     print(f"[archetypes] Set {set_num}: {len(archetypes)} archetypes from {len(all_boards)} boards → cached")
 
 
+# ── Item-builds tier list (precomputed into the snapshot) ─────────────────────
+def _compute_item_builds(insight_rows: list, set_number: int, player_count: int,
+                         min_games: int = 2) -> dict:
+    """Per-unit 2–3 item build tier list, computed from the FULL topBoards
+    dataset (every player's top finishes — far richer than the 20 per-comp
+    example boards the /builds page falls back to client-side).
+
+    Emits the exact shape the /builds page expects so it can be served straight
+    from the static snapshot with zero per-request compute:
+
+        { units: [ { unit, cost, iconUrl,
+                     builds: [ { items:[{name,iconUrl}], games, avgPlacement, winRate } ],
+                     totalGames } ],
+          totalBoards, playerCount, setNumber }
+
+    topBoard units already carry cost/iconUrl and their items carry name+iconUrl,
+    so no championExplorer cross-lookup is needed. winRate is the fraction of
+    boards where this exact combo placed 1st (frontend renders it as a %)."""
+    unit_meta: dict = {}   # unit name → {cost, iconUrl}
+    item_icons: dict = {}  # item name → iconUrl
+    builds: dict = {}      # unit name → { sorted-items-key → {games,totalPl,wins} }
+    total_boards = 0
+
+    for ins in insight_rows:
+        if not isinstance(ins, dict):
+            continue
+        for board in (ins.get("topBoards") or ins.get("winBoards") or []):
+            placement = board.get("placement") or 8
+            total_boards += 1
+            for unit in board.get("units") or []:
+                name = unit.get("name")
+                if not name:
+                    continue
+                um = unit_meta.setdefault(name, {"cost": None, "iconUrl": None})
+                if um["cost"] is None and unit.get("cost") is not None:
+                    um["cost"] = unit.get("cost")
+                if not um["iconUrl"] and unit.get("iconUrl"):
+                    um["iconUrl"] = unit.get("iconUrl")
+                items = []
+                for it in unit.get("items") or []:
+                    iname = it.get("name") if isinstance(it, dict) else it
+                    if not iname:
+                        continue
+                    items.append(iname)
+                    if isinstance(it, dict) and it.get("iconUrl") and iname not in item_icons:
+                        item_icons[iname] = it.get("iconUrl")
+                if len(items) < 2 or len(items) > 3:
+                    continue
+                key = "|".join(sorted(items))
+                b = builds.setdefault(name, {}).setdefault(key, {"games": 0, "totalPl": 0, "wins": 0})
+                b["games"] += 1
+                b["totalPl"] += placement
+                if placement == 1:
+                    b["wins"] += 1
+
+    units_out = []
+    for name, bmap in builds.items():
+        blist = []
+        for key, s in bmap.items():
+            if s["games"] < min_games:
+                continue
+            g = s["games"]
+            blist.append({
+                "items": [{"name": n, "iconUrl": item_icons.get(n)} for n in key.split("|")],
+                "games": g,
+                "avgPlacement": round(s["totalPl"] / g, 2),
+                "winRate": round(s["wins"] / g, 2),
+            })
+        if not blist:
+            continue
+        blist.sort(key=lambda b: (-b["games"], b["avgPlacement"]))
+        units_out.append({
+            "unit": name,
+            "cost": unit_meta[name]["cost"],
+            "iconUrl": unit_meta[name]["iconUrl"],
+            "builds": blist[:5],
+            "totalGames": sum(b["games"] for b in blist),
+        })
+    units_out.sort(key=lambda u: -u["totalGames"])
+
+    return {
+        "units": units_out,
+        "totalBoards": total_boards,
+        "playerCount": player_count,
+        "setNumber": set_number,
+    }
+
+
 # ── Static snapshot export ────────────────────────────────────────────────────
 def _export_static_snapshot(platform: str, tier: str, active_set: int):
     """
@@ -3049,8 +3137,13 @@ def _export_static_snapshot(platform: str, tier: str, active_set: int):
     total = len(ladder_rows)
 
     def _row_to_entry(r: dict) -> dict:
-        """Convert a DB row (snake_case) to the API response format (camelCase)."""
-        ins = r.get("insights")
+        """Convert a DB row (snake_case) to the API response format (camelCase).
+
+        The heavy per-player ``insights`` blob (full topBoards / topItems /
+        itemHolders arrays) is DROPPED here: it dominated snapshot size once the
+        full ladder was persisted (~49 KB/entry → multi-MiB files). The
+        leaderboard list only needs the scalar fields below; per-unit item data
+        now lives in the precomputed ``itemBuilds`` section instead."""
         return {
             "platform": r.get("platform"),
             "tier": r.get("tier"),
@@ -3065,11 +3158,10 @@ def _export_static_snapshot(platform: str, tier: str, active_set: int):
             "freshBlood": r.get("fresh_blood"),
             "hotStreak": r.get("hot_streak"),
             "ladderPosition": r.get("ladder_position"),
-            "insights": ins,
+            "insights": None,  # stripped — see docstring
             "insightsError": r.get("insights_error"),
             "insightsFetchedAt": r.get("insights_fetched_at"),
             "profileIconId": r.get("profile_icon_id"),
-            "insightsCursor": r.get("insights_cursor"),
             "setNumber": r.get("set_number"),
         }
 
@@ -3229,6 +3321,13 @@ def _export_static_snapshot(platform: str, tier: str, active_set: int):
         "winningBoards": winning_boards,
         "championExplorer": champion_explorer,
         "availableSets": available_sets,
+        # Precomputed per-unit item-builds tier list from the FULL topBoards
+        # dataset, so /builds is served straight from this static file (no DB,
+        # no per-request compute).
+        "itemBuilds": _compute_item_builds(
+            [row.get("insights") or {} for row in all_insights_rows],
+            active_set, gs_player_count,
+        ),
     }
 
     # Resolve output path relative to this script: scripts/ → project root → public/data/
@@ -3270,7 +3369,9 @@ def _export_historical_snapshot(platform: str, tier: str, active_set: int, targe
     total = len(ladder_rows)
 
     def _hist_row_to_entry(r: dict) -> dict:
-        ins = r.get("insights")
+        # Heavy per-player insights blob dropped (see _row_to_entry); the
+        # historical ladder list only needs the scalar fields, and per-unit
+        # item data lives in the precomputed itemBuilds section.
         return {
             "platform": r.get("platform"),
             "tier": r.get("tier"),
@@ -3285,7 +3386,7 @@ def _export_historical_snapshot(platform: str, tier: str, active_set: int, targe
             "freshBlood": False,
             "hotStreak": False,
             "ladderPosition": None,
-            "insights": ins,
+            "insights": None,
             "insightsError": None,
             "insightsFetchedAt": r.get("computed_at"),
             "profileIconId": None,
@@ -3413,6 +3514,11 @@ def _export_historical_snapshot(platform: str, tier: str, active_set: int, targe
         "globalSummary": global_summary,
         "winningBoards": winning_boards,
         "championExplorer": champion_explorer,
+        # Precomputed per-unit item-builds tier list (see _compute_item_builds).
+        "itemBuilds": _compute_item_builds(
+            [row.get("insights") or {} for row in all_rows],
+            target_set, gs_player_count,
+        ),
     }
 
     out_dir = Path(__file__).resolve().parent.parent / "public" / "data"
