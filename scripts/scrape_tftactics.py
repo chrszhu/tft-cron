@@ -133,12 +133,32 @@ def _normalize(comp: dict) -> dict:
     }
 
 
+def _latest_cdragon_set() -> int | None:
+    """Newest TFT set number CDragon publishes (so --set defaults to current)."""
+    try:
+        resp = requests.get("https://raw.communitydragon.org/latest/cdragon/tft/en_us.json",
+                            headers=UA, timeout=30)
+        resp.raise_for_status()
+        nums = [s.get("number") for s in resp.json().get("setData", []) if isinstance(s.get("number"), int)]
+        return max(nums) if nums else None
+    except Exception:
+        return None
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Scrape tftactics.gg team comps.")
-    ap.add_argument("--set", type=int, default=18, help="TFT set number to keep")
-    ap.add_argument("--out", default=os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "tftactics_set18.json"))
+    ap.add_argument("--set", type=int, default=None,
+                    help="TFT set number to keep (default: newest on CDragon, else 18)")
+    ap.add_argument("--out", default=None,
+                    help="Output path (default: scripts/tftactics_set<SET>.json)")
     args = ap.parse_args()
+
+    if args.set is None:
+        env = os.environ.get("TFT_ACTIVE_SET", "").strip()
+        args.set = int(env) if env.isdigit() else (_latest_cdragon_set() or 18)
+    if not args.out:
+        args.out = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                f"tftactics_set{args.set}.json")
 
     html = _fetch(PAGE)
     js = _fetch(_main_chunk_url(html))
