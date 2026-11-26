@@ -53,9 +53,11 @@ env:
 
 jobs:
 
-  # ── Seed / refresh the current set (Set 18) via live-ladder + high-elo crawl ──
+  # ── Seed / refresh the active set via live-ladder + high-elo crawl ──
+  #    The active set is resolved at runtime (newest live CDragon set, or the
+  #    TFT_ACTIVE_SET variable override) — see the "Resolve active set" step.
   seed-current:
-    name: "1 — Set 18 (current)"
+    name: "1 — active set (current)"
     runs-on: ubuntu-latest
     timeout-minutes: 350
     outputs:
@@ -69,6 +71,28 @@ jobs:
         with: { python-version: "3.12", cache: "pip" }
       - run: pip install -r requirements.txt
 
+      # ── Resolve the active set autonomously ──────────────────────────────────
+      # Manual override (repo variable TFT_ACTIVE_SET) wins if set; otherwise
+      # auto-detect the newest set CommunityDragon publishes on LIVE servers.
+      # This is what lets a new set onboard itself with no human in the loop:
+      # once Riot ships Set N to live (and CDragon ingests it), this flips to N.
+      # The downstream "degraded snapshot" guardrail still gates the actual push,
+      # so a new set only goes live once its comps + ladder data are good enough.
+      - name: Resolve active set
+        env:
+          OVERRIDE: ${{ vars.TFT_ACTIVE_SET }}
+        run: |
+          ACTIVE_SET="$(TFT_ACTIVE_SET="${OVERRIDE}" python3 -c 'import sys; sys.path.insert(0,"scripts"); import set_config; print(set_config.resolve_active_set())')"
+          case "$ACTIVE_SET" in
+            ''|*[!0-9]*) echo "Could not resolve a numeric set (got: '\''$ACTIVE_SET'\''); defaulting to 18"; ACTIVE_SET=18 ;;
+          esac
+          if [ -n "${OVERRIDE}" ]; then
+            echo "Active set = $ACTIVE_SET (manual override via TFT_ACTIVE_SET variable)"
+          else
+            echo "Active set = $ACTIVE_SET (auto-detected newest live CDragon set)"
+          fi
+          echo "TFT_ACTIVE_SET=$ACTIVE_SET" >> "$GITHUB_ENV"
+
       - name: Refresh TFT Academy meta comps (non-fatal)
         # Re-scrape the expert guidance dataset (positioning / stage tips /
         # difficulty / late cap / carousel / augments tip) so the baked snapshot
@@ -77,13 +101,13 @@ jobs:
         continue-on-error: true
         run: python3 scripts/scrape_tftacademy.py --set "${TFT_ACTIVE_SET:-18}"
         env:
-          TFT_ACTIVE_SET: ${{ vars.TFT_ACTIVE_SET || '18' }}
+          TFT_ACTIVE_SET: ${{ env.TFT_ACTIVE_SET }}
 
       - name: Seed current set
         id: run
         env:
           RIOT_API_KEY:        ${{ secrets.RIOT_API_KEY }}
-          TFT_ACTIVE_SET:      ${{ vars.TFT_ACTIVE_SET || '18' }}
+          TFT_ACTIVE_SET:      ${{ env.TFT_ACTIVE_SET }}
           TFT_TARGET_BOARDS:   ${{ env.TFT_TARGET_BOARDS }}
           TFT_SEED_PREV_LIMIT: ${{ env.TFT_SEED_PREV_LIMIT }}
         run: |
@@ -106,7 +130,7 @@ jobs:
         continue-on-error: true
         env:
           RIOT_API_KEY:   ${{ secrets.RIOT_API_KEY }}
-          TFT_ACTIVE_SET: ${{ vars.TFT_ACTIVE_SET || '18' }}
+          TFT_ACTIVE_SET: ${{ env.TFT_ACTIVE_SET }}
         run: |
           python3 scripts/refresh.py --region "$REGION" --tier challenger --ladder-only
 
@@ -114,7 +138,7 @@ jobs:
         if: always()
         continue-on-error: true
         env:
-          TFT_ACTIVE_SET: ${{ vars.TFT_ACTIVE_SET || '18' }}
+          TFT_ACTIVE_SET: ${{ env.TFT_ACTIVE_SET }}
         run: |
           python3 -c '
           import os, duckdb
@@ -139,7 +163,7 @@ jobs:
         if: always()
         continue-on-error: true
         env:
-          TFT_ACTIVE_SET: ${{ vars.TFT_ACTIVE_SET || '18' }}
+          TFT_ACTIVE_SET: ${{ env.TFT_ACTIVE_SET }}
         run: |
           python3 -c '
           import importlib.util, os
@@ -186,7 +210,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "Snapshot unchanged."
           else
-            git commit -m "data: refresh Set 18 snapshot ($(date -u '+%Y-%m-%d %H:%M UTC'))"
+            git commit -m "data: refresh Set ${TFT_ACTIVE_SET} snapshot ($(date -u '+%Y-%m-%d %H:%M UTC'))"
             git push && echo "Pushed — Vercel will redeploy."
           fi
 
@@ -217,7 +241,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Summarise
-        run: echo "Set18 result ${{ needs.seed-current.result }}"
+        run: echo "Seed result ${{ needs.seed-current.result }}"
 
       - name: Notify — API key expired
         if: needs.seed-current.outputs.key_expired == 'true'
