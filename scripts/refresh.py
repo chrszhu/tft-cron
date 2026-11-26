@@ -115,6 +115,57 @@ PLATFORM_ROUTING = {
     "ph2": "sea", "sg2": "sea", "th2": "sea", "tw2": "sea", "vn2": "sea",
 }
 
+# Last-resort active set if both the TFT_ACTIVE_SET env var AND CDragon detection
+# are unavailable. Bump only as a safety net; normal operation auto-detects.
+DEFAULT_ACTIVE_SET = 18
+
+# ── Active-set resolution ─────────────────────────────────────────────────────
+# One resolver for "which TFT set are we building?", so onboarding a new set is a
+# single config change (or automatic) instead of editing scattered constants.
+#   Priority:  TFT_ACTIVE_SET env var  >  newest set published by CDragon  >
+#              DEFAULT_ACTIVE_SET
+# The env var is how the cron pins the set (GitHub repo variable TFT_ACTIVE_SET);
+# CDragon auto-detect means a new set is picked up with zero code changes once
+# Riot publishes it. Result is cached for the process.
+_RESOLVED_ACTIVE_SET: Optional[int] = None
+
+
+def detect_latest_cdragon_set() -> Optional[int]:
+    """Highest TFT set number CommunityDragon currently publishes, or None if the
+    catalog can't be fetched. This is what makes future set launches automatic."""
+    try:
+        resp = requests.get(CDRAGON_BASE, timeout=FETCH_TIMEOUT)
+        resp.raise_for_status()
+        sets = resp.json().get("setData", [])
+        nums = [s.get("number") for s in sets if isinstance(s.get("number"), int)]
+        return max(nums) if nums else None
+    except Exception as e:
+        print(f"[set] CDragon set detection failed ({e})")
+        return None
+
+
+def resolve_active_set(force: Optional[int] = None) -> int:
+    """The TFT set the pipeline targets (see priority note above). Cached.
+
+    Pass ``force`` to pin a set explicitly (highest priority, also updates the
+    cache) — used by orchestration scripts and ``--backfill-set``."""
+    global _RESOLVED_ACTIVE_SET
+    if force is not None and force > 0:
+        _RESOLVED_ACTIVE_SET = int(force)
+        return _RESOLVED_ACTIVE_SET
+    if _RESOLVED_ACTIVE_SET is not None:
+        return _RESOLVED_ACTIVE_SET
+    env = os.environ.get("TFT_ACTIVE_SET", "").strip()
+    if env.isdigit() and int(env) > 0:
+        _RESOLVED_ACTIVE_SET = int(env)
+        print(f"[set] active set = {_RESOLVED_ACTIVE_SET} (TFT_ACTIVE_SET env)")
+        return _RESOLVED_ACTIVE_SET
+    detected = detect_latest_cdragon_set()
+    _RESOLVED_ACTIVE_SET = detected or DEFAULT_ACTIVE_SET
+    print(f"[set] active set = {_RESOLVED_ACTIVE_SET} "
+          f"({'CDragon latest' if detected else 'default fallback'})")
+    return _RESOLVED_ACTIVE_SET
+
 # ── DB connection (DuckDB, local file) ────────────────────────────────────────
 #
 # Migrated off CockroachDB/psycopg2. Storage is now a single local DuckDB file
@@ -475,6 +526,35 @@ def _team_code(unit_names: list, team_planner: dict, active_set: int) -> Optiona
         return None
     code = "02" + "".join(segs) + "000" * (10 - len(segs)) + f"TFTSet{active_set}"
     return code if len(code) == 40 else None
+
+
+def _team_code_units(board_units: list, unit_data: dict, total: int,
+                     min_pct: float = 0.1) -> list:
+    """Ordered unit-name list for the Team Planner code.
+
+    The comp's board (core + flex, in their existing order) comes first so the
+    import always leads with the defining units, then we pad with the next
+    most-common units from the comp's real winning boards (those appearing in
+    >= ``min_pct`` of them) so the imported board is as FULL as possible. The
+    10-slot cap (and skipping codeless units) is handled by _team_code().
+    """
+    names: list = []
+    seen: set = set()
+    for u in board_units:
+        nm = u.get("name")
+        k = _norm_key(nm or "")
+        if nm and k not in seen and not _is_hidden_board_unit(nm):
+            seen.add(k)
+            names.append(nm)
+    for nm, d in sorted((unit_data or {}).items(), key=lambda x: -x[1]["count"]):
+        k = _norm_key(nm)
+        if k in seen or _is_hidden_board_unit(nm):
+            continue
+        if total and d.get("count", 0) / total < min_pct:
+            continue
+        seen.add(k)
+        names.append(nm)
+    return names
 
 
 def _normalize_icon(path: str) -> Optional[str]:
@@ -1049,7 +1129,13 @@ def _load_tft_comps() -> list:
     if _TFT_COMPS is not None:
         return _TFT_COMPS
     here = os.path.dirname(os.path.abspath(__file__))
-    for fname in ("tftacademy_set18.json", "tftactics_set18.json"):
+    aset = resolve_active_set()
+    # Prefer the active set's files; if neither exists (e.g. scrape hasn't run
+    # for a freshly onboarded set), fall back to the NEWEST available comp file
+    # so the pipeline degrades gracefully instead of silently losing enrichment.
+    candidates = [f"tftacademy_set{aset}.json", f"tftactics_set{aset}.json"]
+    candidates += _comp_files_newest_first(here, exclude=set(candidates))
+    for fname in candidates:
         path = os.path.join(here, fname)
         try:
             with open(path) as f:
@@ -1061,6 +1147,19 @@ def _load_tft_comps() -> list:
     print("[opener] no meta-comp dataset found (tftacademy/tftactics)")
     _TFT_COMPS = []
     return _TFT_COMPS
+
+
+def _comp_files_newest_first(here: str, exclude: Optional[set] = None) -> list:
+    """Scraped comp files (tftacademy_set<N>.json / tftactics_set<N>.json) present
+    in the scripts dir, ordered by set number desc then Academy-before-tactics."""
+    exclude = exclude or set()
+    found = []
+    for fn in os.listdir(here):
+        m = re.match(r"(tftacademy|tftactics)_set(\d+)\.json$", fn)
+        if m and fn not in exclude:
+            found.append((int(m.group(2)), 0 if m.group(1) == "tftacademy" else 1, fn))
+    found.sort(key=lambda t: (-t[0], t[1]))
+    return [fn for _, _, fn in found]
 
 
 _TFT_POS_HINTS: Optional[dict] = None
@@ -2149,7 +2248,11 @@ def _resolve_riot_id(routing: str, riot_id: str, api_key: str) -> Optional[str]:
 # Used by --backfill-set to scope match fetches to a specific set's live period.
 # Update when new sets ship (approximate dates are fine — we filter by
 # tft_set_number inside each match response too).
-SET_TIME_WINDOWS: dict[int, tuple[int, int]] = {
+#
+# These baked-in values are MERGED WITH (and overridden by) an optional
+# scripts/set_windows.json — so onboarding a new set (or capping the previous
+# set's end date) is a data edit, not a code edit. new_set.py writes that file.
+_SET_TIME_WINDOWS_BASE: dict[int, tuple[int, int]] = {
     12: (1722384000, 1732060800),   # Set 12 Magic N' Mayhem:  Jul 31 2024 – Nov 20 2024
     13: (1732060800, 1743552000),   # Set 13 Into the Arcane:  Nov 20 2024 – Apr 02 2025
     14: (1743552000, 1753833600),   # Set 14 Cyber City:       Apr 02 2025 – Jul 30 2025
@@ -2158,6 +2261,26 @@ SET_TIME_WINDOWS: dict[int, tuple[int, int]] = {
     17: (1776211200, 1787616000),   # Set 17 Space Gods:       Apr 15 2026 – Aug 25 2026
     18: (1787616000, 9999999999),   # Set 18 Enchanted Wilds:  Aug 25 2026 – present
 }
+
+
+def _load_set_time_windows() -> dict:
+    """Baked-in windows merged with optional scripts/set_windows.json overrides.
+    The JSON is `{ "<set>": [start_ts, end_ts], ... }`."""
+    windows = dict(_SET_TIME_WINDOWS_BASE)
+    override = os.path.join(os.path.dirname(os.path.abspath(__file__)), "set_windows.json")
+    try:
+        with open(override) as f:
+            for k, v in (json.load(f) or {}).items():
+                if str(k).isdigit() and isinstance(v, (list, tuple)) and len(v) == 2:
+                    windows[int(k)] = (int(v[0]), int(v[1]))
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        print(f"[set-windows] ignoring bad set_windows.json ({e})")
+    return windows
+
+
+SET_TIME_WINDOWS: dict[int, tuple[int, int]] = _load_set_time_windows()
 
 
 def _fetch_match_ids(
@@ -2817,7 +2940,10 @@ def _cluster_boards(boards: list, min_jaccard: float = 0.45, min_size: int = 2, 
                 # since CDragon only publishes codes for the current set.
                 tp = catalog.get("teamPlanner") or {}
                 aset = catalog.get("activeSet") or 0
-                tc = _team_code([u["name"] for u in board_units], tp, aset)
+                # Encode the comp's board (core + flex) first, then pad up to 10
+                # with the next most-common units from its real winning boards so
+                # the imported Team Planner board is as full as possible.
+                tc = _team_code(_team_code_units(board_units, unit_data, total), tp, aset)
                 if tc:
                     arch["teamCode"] = tc
                 # Same for the early-game opener board so users can import the
@@ -3871,7 +3997,7 @@ def _backfill_set(platform: str, target_set: int, tier: str = "all"):
 
                 if found > 0:
                     print(f"[backfill] Computing archetypes for Set {target_set}…")
-                    active_set_num = int(os.environ.get("TFT_ACTIVE_SET", "17"))
+                    active_set_num = resolve_active_set()
                     _cache_archetypes(platform, run_tier, active_set=active_set_num, target_set=target_set, catalog=catalog)
                     _export_historical_snapshot(platform, run_tier, active_set_num, target_set)
                     # A freshly-launched set has no ranked ladder yet, so it's
@@ -4112,7 +4238,7 @@ def main():
     _ensure_schema()
 
     if args.retag_historical:
-        active_set = int(os.environ.get("TFT_ACTIVE_SET", "17"))
+        active_set = resolve_active_set()
         _retag_historical(platform, active_set)
         return
 
@@ -4121,7 +4247,7 @@ def main():
         return
 
     if args.seed_current:
-        active_set = int(os.environ.get("TFT_ACTIVE_SET", "18"))
+        active_set = resolve_active_set()
         _seed_current_set(platform, active_set, tier)
         return
 
@@ -4140,7 +4266,7 @@ def _run_tier(platform: str, tier: str, ladder_only: bool):
         print("ERROR: RIOT_API_KEY is not set in .env.local or environment")
         raise SystemExit(1)
 
-    active_set = int(os.environ.get("TFT_ACTIVE_SET", "17"))
+    active_set = resolve_active_set()
     routing = PLATFORM_ROUTING.get(platform)
     if not routing:
         print(f"ERROR: Unknown region '{platform}'")
